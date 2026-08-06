@@ -9,7 +9,12 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage",
+    "test:qa": "vitest run --config vitest.qa.config.ts",
+    "size": "node ../scripts/check-bundle-size.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.408.0",
@@ -22,7 +27,10 @@
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.2",
+    "@vitest/coverage-v8": "^2.1.9",
+    "jsdom": "^25.0.1",
     "typescript": "^5.6.2",
-    "vite": "^5.4.8"
+    "vite": "^5.4.8",
+    "vitest": "^2.1.9"
   }
 }

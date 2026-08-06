@@ -1,24 +1,56 @@
 import express, { Express } from 'express';
+import { config } from './config';
 import { chatHandler } from './routes/chat';
 import { feedbackHandler } from './routes/feedback';
 import { handoffHandler } from './routes/humanHandoff';
 import { scenariosHandler } from './routes/scenarios';
 import { featuresHandler } from './routes/features';
+import { ticketHandler } from './routes/ticket';
+import { rumHandler } from './routes/rum';
 import { errorHandler } from './middleware/errorHandler';
 
 /**
- * 仅做装配：挂载中间件 + 5 个端点 + 全局异常兜底。不含任何业务逻辑。
- * 端点严格对应 openapi.yaml（路径均带 /api/v1 前缀）。
+ * 仅做装配：挂载中间件 + 端点 + 全局异常兜底。不含任何业务逻辑。
+ * 端点严格对应 openapi.yaml（路径均带 /api/v1 前缀），另加两个基建端点：
+ *   POST /api/v1/ticket —— 匿名票据签发（SEC-1）
+ *   POST /api/v1/rum    —— 埋点收集（MAINT-1）
  */
 export function createApp(): Express {
   const app = express();
 
-  // CORS：允许跨域访问（微信 webview / iframe / 第三方域名嵌入场景页都算跨域）。
-  // 本服务不依赖 cookie 凭证，开放 * 安全；跨域时浏览器会先发 OPTIONS 预检，这里直接 204 放行。
+  /**
+   * CORS（SEC-2）。
+   *
+   * 策略取决于是否配置了 CORS_ALLOW_ORIGINS：
+   *  - **未配置（默认）**：沿用既有的 `*` 放行。生产形态是静态托管与云函数同域，
+   *    CORS 本就不参与鉴权；而一个配错的空白名单会把所有人挡在门外，
+   *    代价远大于收益（报到日「回滚优先于修复」原则）。
+   *  - **已配置**：严格白名单回显 Origin，非白名单的预检直接 403。
+   *
+   * 本服务不依赖 cookie 凭证，故不下发 Access-Control-Allow-Credentials。
+   */
   app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
+    const whitelist = config.cors.allowOrigins;
+    const origin = req.headers.origin;
+
+    if (whitelist.length === 0) {
+      res.header('Access-Control-Allow-Origin', '*');
+    } else if (typeof origin === 'string' && whitelist.includes(origin)) {
+      res.header('Access-Control-Allow-Origin', origin);
+      // 回显 Origin 时必须带 Vary，否则 CDN 会把 A 站的响应缓存给 B 站
+      res.header('Vary', 'Origin');
+    } else if (typeof origin === 'string') {
+      // 有 Origin 且不在白名单：预检直接拒，非预检不下发 ACAO（浏览器会自行拦截）
+      if (req.method === 'OPTIONS') {
+        res.status(403).end();
+        return;
+      }
+    }
+    // 无 Origin 头（同源请求 / curl / 服务端调用）不受白名单影响，保持放行
+
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Ticket, X-Request-Id');
+    res.header('Access-Control-Max-Age', '600');
     if (req.method === 'OPTIONS') {
       res.status(204).end();
       return;
@@ -61,6 +93,10 @@ export function createApp(): Express {
   app.post('/api/v1/human-handoff', handoffHandler);
   app.get('/api/v1/scenarios', scenariosHandler);
   app.get('/api/v1/features', featuresHandler);
+
+  // 基建端点（本次新增）
+  app.post('/api/v1/ticket', ticketHandler);
+  app.post('/api/v1/rum', rumHandler);
 
   app.use(errorHandler);
 

@@ -5,3 +5,10 @@ dist/
 .DS_Store
 .env
 .env.local
+
+# 测试与验证产物（T01）
+coverage/
+# vite/vitest 加载 TS 配置时生成的临时文件
+*.timestamp-*.mjs
+# 体积门禁的临时构建输出（不进版本库）
+dist_t01_verify/

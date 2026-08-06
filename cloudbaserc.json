@@ -9,11 +9,101 @@
       "memorySize": 256,
       "timeout": 30,
       "installDependency": true,
-      "envVariables": {}
+      "envVariables": {
+        "AUTH_ENFORCE": "0",
+        "TICKET_TTL_MS": "1800000",
+        "CORS_ALLOW_ORIGINS": "",
+        "RATE_CHAT_MAX": "20",
+        "RATE_WINDOW_MS": "60000"
+      }
     }
   ],
   "hosting": {
     "distPath": "web/dist",
-    "runtime": "Static"
+    "runtime": "Static",
+
+    "_comment_compression": "R1 头号风险：压缩误伤 SSE。mimeTypes 是白名单，text/event-stream 必须不在其中；excludeMimeTypes 为双保险。任一项若平台不支持，须在 CloudBase 控制台 → 静态托管 → 高级配置 中等效补齐，并跑 scripts/verify-headers.sh 复验。",
+    "compression": {
+      "enable": true,
+      "algorithms": ["br", "gzip"],
+      "minLength": 1024,
+      "mimeTypes": [
+        "text/html",
+        "text/css",
+        "text/plain",
+        "text/xml",
+        "application/javascript",
+        "application/json",
+        "application/xml",
+        "image/svg+xml"
+      ],
+      "excludeMimeTypes": [
+        "text/event-stream",
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "font/woff2"
+      ],
+      "excludePaths": ["/api/v1/chat", "/api/v1/*"]
+    },
+
+    "_comment_headers": "LOAD-1/2/3 + SEC-4/5。规则自上而下匹配，越具体越靠前。content-disposition 一律显式 inline，覆盖平台可能下发的 attachment（LOAD-3）。HTML 用 no-cache（每次回源校验 ETag）而非 no-store（no-store 会彻底禁用缓存，报到日弱网下反而更慢）。",
+    "headers": [
+      {
+        "source": "/api/v1/chat",
+        "headers": [
+          { "key": "cache-control", "value": "no-cache, no-transform" },
+          { "key": "content-type", "value": "text/event-stream; charset=utf-8" },
+          { "key": "x-accel-buffering", "value": "no" },
+          { "key": "content-encoding", "value": "identity" }
+        ]
+      },
+      {
+        "source": "/assets/**",
+        "headers": [
+          { "key": "cache-control", "value": "public, max-age=31536000, immutable" },
+          { "key": "content-disposition", "value": "inline" },
+          { "key": "x-content-type-options", "value": "nosniff" }
+        ]
+      },
+      {
+        "source": "**/*.@(js|mjs|css|woff2|woff|png|jpg|jpeg|webp|svg)",
+        "headers": [
+          { "key": "cache-control", "value": "public, max-age=31536000, immutable" },
+          { "key": "content-disposition", "value": "inline" },
+          { "key": "x-content-type-options", "value": "nosniff" }
+        ]
+      },
+      {
+        "source": "/fallback.html",
+        "headers": [
+          { "key": "cache-control", "value": "public, max-age=300" },
+          { "key": "content-disposition", "value": "inline" },
+          { "key": "content-type", "value": "text/html; charset=utf-8" }
+        ]
+      },
+      {
+        "source": "**/*.html",
+        "headers": [
+          { "key": "cache-control", "value": "no-cache" },
+          { "key": "content-disposition", "value": "inline" },
+          { "key": "content-type", "value": "text/html; charset=utf-8" }
+        ]
+      },
+      {
+        "source": "**",
+        "headers": [
+          { "key": "x-content-type-options", "value": "nosniff" },
+          { "key": "x-frame-options", "value": "SAMEORIGIN" },
+          { "key": "referrer-policy", "value": "strict-origin-when-cross-origin" },
+          { "key": "permissions-policy", "value": "camera=(), microphone=(), payment=(), usb=(), geolocation=(self)" },
+          { "key": "strict-transport-security", "value": "max-age=31536000; includeSubDomains" },
+          {
+            "key": "content-security-policy-report-only",
+            "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+          }
+        ]
+      }
+    ]
   }
 }

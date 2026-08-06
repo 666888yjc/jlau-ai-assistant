@@ -70,6 +70,51 @@ export const config = {
     windowMs: numEnv(process.env.RATE_WINDOW_MS, 60_000),
     chatMax: numEnv(process.env.RATE_CHAT_MAX, 20),
     dataMax: numEnv(process.env.RATE_DATA_MAX, 60),
+    /** 票据签发端点单独限流，防止刷票绕过 chat 限流 */
+    ticketMax: numEnv(process.env.RATE_TICKET_MAX, 10),
+  },
+
+  /**
+   * 匿名票据鉴权（SEC-1 / Q2）。
+   *
+   * ⚠️ 风险 R5「鉴权误伤真新生」是本任务最高风险，因此这里的默认值全部偏向放行：
+   *  - `enforce` 默认 **false**（灰度：只记录不拦截），观察 24h 无误伤再置 1；
+   *  - 报到日应急预案要求「回滚优先于修复」，改 AUTH_ENFORCE 环境变量即可秒级关停。
+   */
+  auth: {
+    /** 1/true = 拦截无效票据；0/false = 仅记录不拦截（默认，灰度期） */
+    enforce: boolEnv(process.env.AUTH_ENFORCE, false),
+    /** 票据有效期，默认 30 分钟（Q2） */
+    ticketTtlMs: numEnv(process.env.TICKET_TTL_MS, 30 * 60_000),
+    /**
+     * HMAC 签名密钥。**必须通过环境变量注入。**
+     * 云函数是多实例的：若各实例自行生成随机密钥，A 实例签发的票据到 B 实例必然验签失败，
+     * 结果就是报到日大面积 401。因此密钥缺失时 auth.ts 会强制退回不拦截模式（见该文件说明）。
+     */
+    ticketSecret: process.env.TICKET_SECRET || '',
+  },
+
+  /**
+   * CORS 白名单（SEC-2）。逗号分隔，如 "https://a.com,https://b.com"。
+   *
+   * 留空 = 沿用既有的 `*` 放行行为。这是刻意的默认值：
+   * 生产形态是静态托管与云函数同域，CORS 本就不参与鉴权；
+   * 而一个配错的空白名单会把所有人挡在门外，代价远大于收益。
+   * 需要收紧时显式配置 CORS_ALLOW_ORIGINS 即可，配了就严格执行。
+   */
+  cors: {
+    allowOrigins: (process.env.CORS_ALLOW_ORIGINS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s !== ''),
+  },
+
+  /** request_id 幂等去重（API-1） */
+  idempotency: {
+    /** 正常完成的 request_id 在此时间内重复提交视为重复请求 */
+    ttlMs: numEnv(process.env.IDEMPOTENCY_TTL_MS, 60_000),
+    /** LRU 容量上限，防止内存无限增长 */
+    maxEntries: numEnv(process.env.IDEMPOTENCY_MAX_ENTRIES, 5000),
   },
 };
 

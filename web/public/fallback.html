@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#3D6B51" />
+    <meta name="robots" content="noindex" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233D6B51'/%3E%3Cpath d='M16 25V13' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M16 17c0-4 3-7 7-7 0 4-3 7-7 7Z' fill='%23FFFFFF'/%3E%3Cpath d='M16 20c0-3.2-2.4-5.6-5.6-5.6 0 3.2 2.4 5.6 5.6 5.6Z' fill='%23B58234'/%3E%3C/svg%3E"
+    />
+    <title>报到常见问题 · 吉小农（离线版）</title>
+
+    <!--
+      终极降级页（PRD §9.4 / 架构 T01）。
+      设计约束：
+        1) 零后端接口依赖、零外链、零 JS 框架 —— 断网、云函数挂掉、CDN 只剩静态资源时仍可读。
+           （本文件刻意不出现接口路径字面量，scripts/verify-headers.sh 会 grep 该字符串做门禁）
+        2) 单文件自包含，双击本地文件也能正常打开；
+        3) 内容只写「稳定不会变」的通识与流程，凡是会随年份/院系/批次变动的具体值
+           （房间号、电话、时间点、金额）一律指向录取通知书或现场志愿者，
+           宁可少给信息，也不能给错信息把新生指到错地方。
+      仅有的 JS 是纯本地的关键词过滤，不发起任何网络请求。
+    -->
+    <style>
+      :root {
+        --paper: #faf9f5;
+        --ink: #1f2421;
+        --ink-soft: #5c655e;
+        --accent: #3d6b51;
+        --gold: #b58234;
+        --line: #e4e2da;
+        --card: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #131512;
+          --ink: #e8e6df;
+          --ink-soft: #9aa39c;
+          --accent: #7fae91;
+          --gold: #d3a75c;
+          --line: #2b2f2b;
+          --card: #1b1e1b;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        background: var(--paper);
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        padding: 0 0 calc(32px + env(safe-area-inset-bottom));
+        background: var(--paper);
+        color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
+          'Microsoft YaHei', sans-serif;
+        font-size: 16px;
+        line-height: 1.75;
+      }
+      .wrap {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 0 16px;
+      }
+      header {
+        padding: calc(20px + env(safe-area-inset-top)) 16px 16px;
+        border-bottom: 1px solid var(--line);
+        background: var(--card);
+      }
+      header .inner {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 20px;
+        letter-spacing: 0.02em;
+      }
+      .sub {
+        margin: 0;
+        font-size: 13px;
+        color: var(--ink-soft);
+      }
+      .banner {
+        margin: 16px 0 4px;
+        padding: 12px 14px;
+        border-left: 3px solid var(--gold);
+        background: color-mix(in srgb, var(--gold) 10%, transparent);
+        border-radius: 0 8px 8px 0;
+        font-size: 14px;
+        color: var(--ink);
+      }
+      h2 {
+        margin: 28px 0 10px;
+        font-size: 17px;
+        padding-left: 10px;
+        border-left: 4px solid var(--accent);
+        line-height: 1.4;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 4px 16px;
+        margin: 12px 0;
+      }
+      details {
+        border-bottom: 1px solid var(--line);
+        padding: 4px 0;
+      }
+      details:last-child {
+        border-bottom: 0;
+      }
+      summary {
+        cursor: pointer;
+        padding: 10px 0;
+        font-weight: 600;
+        font-size: 15px;
+        list-style: none;
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+      }
+      summary::-webkit-details-marker {
+        display: none;
+      }
+      summary::before {
+        content: 'Q';
+        color: var(--accent);
+        font-weight: 700;
+        flex: 0 0 auto;
+      }
+      details[open] summary {
+        color: var(--accent);
+      }
+      details p {
+        margin: 0 0 12px 18px;
+        font-size: 14.5px;
+        color: var(--ink-soft);
+      }
+      ol.flow {
+        counter-reset: step;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      ol.flow li {
+        position: relative;
+        padding: 10px 0 10px 38px;
+        border-bottom: 1px dashed var(--line);
+        font-size: 15px;
+      }
+      ol.flow li:last-child {
+        border-bottom: 0;
+      }
+      ol.flow li::before {
+        counter-increment: step;
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        top: 12px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      ol.flow small {
+        display: block;
+        color: var(--ink-soft);
+        font-size: 13px;
+      }
+      ul.check {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      ul.check li {
+        padding: 8px 0 8px 26px;
+        position: relative;
+        font-size: 15px;
+        border-bottom: 1px dashed var(--line);
+      }
+      ul.check li:last-child {
+        border-bottom: 0;
+      }
+      ul.check li::before {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 15px;
+        width: 10px;
+        height: 10px;
+        border: 2px solid var(--accent);
+        border-radius: 3px;
+      }
+      ul.check li b {
+        color: var(--ink);
+      }
+      ul.check li span {
+        color: var(--ink-soft);
+        font-size: 13px;
+        display: block;
+      }
+      .search {
+        margin: 16px 0 0;
+        width: 100%;
+        padding: 11px 14px;
+        font-size: 16px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--card);
+        color: var(--ink);
+      }
+      .search:focus {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      .empty {
+        display: none;
+        padding: 18px 4px;
+        color: var(--ink-soft);
+        font-size: 14px;
+      }
+      footer {
+        margin-top: 32px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line);
+        font-size: 13px;
+        color: var(--ink-soft);
+      }
+      footer a {
+        color: var(--accent);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="inner">
+        <h1>吉林农业大学 · 新生报到常见问题</h1>
+        <p class="sub">离线速查版 · 无需联网即可阅读</p>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="banner">
+        当前为<strong>离线速查版</strong>，智能问答暂时不可用。下面是报到流程、材料清单与 20
+        条高频问题。<br />
+        涉及你个人的具体信息（报到日期、地点、班级、缴费金额等）<strong
+          >以《录取通知书》及随附材料为准</strong
+        >；现场有疑问请直接找穿志愿者服装的学长学姐或迎新点工作人员。
+      </div>
+
+      <h2>一、报到当天流程</h2>
+      <div class="card">
+        <ol class="flow">
+          <li>
+            到达学校迎新点
+            <small>校门口、火车站/客运站通常设有迎新接站点，按通知书上的指引前往</small>
+          </li>
+          <li>
+            找到本学院的接待台
+            <small>迎新区按学院分区，看指示牌或问志愿者即可</small>
+          </li>
+          <li>
+            资格审查与信息核验
+            <small>出示录取通知书、身份证、准考证等，工作人员核对录取信息</small>
+          </li>
+          <li>
+            办理缴费手续
+            <small>多数情况下学费已通过线上系统预缴，现场只需确认；以通知书说明为准</small>
+          </li>
+          <li>
+            领取宿舍钥匙与住宿用品
+            <small>床上用品是否统一采购、如何领取，按当年安排执行</small>
+          </li>
+          <li>
+            前往宿舍安顿行李
+            <small>宿舍楼有值班室，入住登记按楼管要求办理</small>
+          </li>
+          <li>
+            领取校园卡 / 办理银行卡与电话卡
+            <small>校园卡用于食堂、门禁、图书馆；相关网点通常设在迎新区</small>
+          </li>
+          <li>
+            完成后续注册事项
+            <small>如党团组织关系转接、户口迁移确认、绿色通道申请等，按学院通知办理</small>
+          </li>
+          <li>
+            加入班级群、留意入学教育与军训安排
+            <small>务必只加官方渠道公布的群，谨防冒充</small>
+          </li>
+        </ol>
+      </div>
+
+      <h2>二、材料清单（建议逐项打勾）</h2>
+      <div class="card">
+        <ul class="check">
+          <li>
+            <b>录取通知书（原件）</b><span>最重要的一份，单独收好，不要压在行李箱底部</span>
+          </li>
+          <li><b>身份证原件 + 复印件若干</b><span>建议正反面复印 5–10 份备用</span></li>
+          <li><b>准考证</b><span>部分环节可能需要核验，带上不占地方</span></li>
+          <li>
+            <b>高中毕业证 / 学籍档案</b><span>档案一般由中学密封转递，切勿自行拆封</span>
+          </li>
+          <li><b>党团组织关系材料</b><span>团员需带团员证及组织关系介绍信</span></li>
+          <li><b>户口迁移证（如办理迁户）</b><span>是否迁户自愿，按通知书说明决定</span></li>
+          <li><b>一寸/两寸证件照</b><span>蓝底白底各备一版，电子版也存一份在手机里</span></li>
+          <li><b>银行卡</b><span>用于缴费与生活费，具体卡种以通知书要求为准</span></li>
+          <li><b>常用药品</b><span>感冒药、肠胃药、创可贴等，东北气候干燥可备润唇膏</span></li>
+          <li><b>换季衣物</b><span>长春秋季降温早，开学一个月内就需要厚外套</span></li>
+          <li><b>洗漱与日常用品</b><span>校内超市都能买到，不必从家里背太多</span></li>
+          <li><b>插线板、充电器、数据线</b><span>宿舍插座有限，插线板几乎人人都需要</span></li>
+          <li><b>雨伞、水杯、饭盒</b><span>轻便实用</span></li>
+          <li><b>少量现金</b><span>备一两百元零钱，应对个别不支持移动支付的场景</span></li>
+        </ul>
+      </div>
+
+      <h2>三、常见问题（20 条）</h2>
+      <input
+        class="search"
+        id="q"
+        type="search"
+        placeholder="输入关键词过滤，例如：宿舍、军训、校园卡"
+        aria-label="按关键词过滤常见问题"
+      />
+      <div class="card" id="faq">
+        <details>
+          <summary>报到时间和地点在哪里查？</summary>
+          <p>
+            以《录取通知书》及随附的入学须知为准，上面会写明报到日期、报到地点和联系方式。学校官网和官方公众号的迎新通知也会同步发布。请不要以社交平台的转述为准。
+          </p>
+        </details>
+        <details>
+          <summary>能提前或延后报到吗？</summary>
+          <p>
+            因交通、身体等原因无法按时报到的，应提前向录取学院请假并说明情况，获得同意后按约定时间办理。无故逾期不报到可能影响入学资格，务必提前沟通。
+          </p>
+        </details>
+        <details>
+          <summary>家长可以陪同进校吗？</summary>
+          <p>
+            多数年份允许家长陪同进入迎新区域，但可能有人数或时段限制。以当年发布的迎新安排为准，进校前留意学校官方通知。
+          </p>
+        </details>
+        <details>
+          <summary>没赶上接站车怎么办？</summary>
+          <p>
+            可自行乘坐公共交通或网约车前往学校，到校门口后按迎新指示牌前往本学院接待台。接站服务通常只在报到日的固定时段提供。
+          </p>
+        </details>
+        <details>
+          <summary>行李太多，能提前寄到学校吗？</summary>
+          <p>
+            可以邮寄，但要注意快递在报到高峰期可能积压。收件信息、可否提前寄存以学校迎新通知为准，建议贵重物品和证件随身携带，不要走物流。
+          </p>
+        </details>
+        <details>
+          <summary>宿舍怎么分配？可以自己选室友吗？</summary>
+          <p>
+            宿舍原则上由学院统一分配，一般按专业、班级集中安排。个别年份可能开放线上选宿或调宿申请，以学院通知为准，不要相信「花钱换宿舍」的说法。
+          </p>
+        </details>
+        <details>
+          <summary>宿舍有空调、独立卫浴、洗衣机吗？</summary>
+          <p>
+            不同宿舍楼条件不一致。具体配置建议在报到后实地确认，或向本学院辅导员、宿管值班室咨询，不要按网上的旧帖子准备。
+          </p>
+        </details>
+        <details>
+          <summary>床上用品需要自己带吗？</summary>
+          <p>
+            部分年份提供统一采购的床品套装，可自愿购买；也允许自带。床垫尺寸建议到校后确认再买，避免尺寸不合。
+          </p>
+        </details>
+        <details>
+          <summary>学费什么时候交？可以现场交吗？</summary>
+          <p>
+            多数情况下通过学校指定的线上渠道预缴，报到时核验缴费状态。具体金额、渠道和截止时间以《录取通知书》随附的缴费须知为准，切勿向任何私人账户转账。
+          </p>
+        </details>
+        <details>
+          <summary>家庭经济困难，交不上学费怎么办？</summary>
+          <p>
+            学校设有「绿色通道」，可先办理入学手续再解决费用问题。同时有国家助学贷款、助学金、勤工助学等资助渠道。报到时直接向学院接待台或资助管理部门说明情况即可，不必顾虑。
+          </p>
+        </details>
+        <details>
+          <summary>生源地助学贷款需要带什么？</summary>
+          <p>
+            一般需携带受理证明（回执）等材料，到校后按学校资助部门要求录入回执信息。具体材料清单以贷款受理时当地学生资助管理中心的告知为准。
+          </p>
+        </details>
+        <details>
+          <summary>档案和户口怎么处理？</summary>
+          <p>
+            档案通常由原就读学校密封转递或本人机要携带，<strong>切勿自行拆封</strong
+            >，拆封后可能失效。户口迁移为自愿，需要迁的按通知书说明办理《户口迁移证》。
+          </p>
+        </details>
+        <details>
+          <summary>团员组织关系怎么转？</summary>
+          <p>
+            按原学校团组织要求办理转出，携带团员证及组织关系介绍信，报到后交给班级或学院团组织。党员另按党组织关系转接流程办理。
+          </p>
+        </details>
+        <details>
+          <summary>校园卡怎么办、丢了怎么补？</summary>
+          <p>
+            校园卡一般在报到期间统一发放或现场办理，用于食堂消费、门禁、图书借阅等。补办到相应服务窗口办理，具体位置问志愿者或查校内指引。
+          </p>
+        </details>
+        <details>
+          <summary>军训什么时候开始？需要准备什么？</summary>
+          <p>
+            军训通常安排在报到后不久，持续两到三周。军训服装一般由学校统一发放。个人可准备：运动鞋、防晒霜、大容量水杯、护膝。身体有特殊状况的须提前向辅导员报备。
+          </p>
+        </details>
+        <details>
+          <summary>可以申请转专业吗？</summary>
+          <p>
+            学校有转专业政策，但通常在入学一段时间后按学年统一受理，有成绩和名额要求。刚报到时不需要着急，先向辅导员了解本年度的具体规定。
+          </p>
+        </details>
+        <details>
+          <summary>手机卡、宽带要在学校办吗？</summary>
+          <p>
+            自愿办理，迎新期间校内常有运营商摊位。<strong>不要被「必须办理才能入学」之类的话术误导</strong
+            >，可以对比资费后再决定，也可以继续用原有号码。
+          </p>
+        </details>
+        <details>
+          <summary>长春的天气怎么样？衣服怎么带？</summary>
+          <p>
+            长春秋季降温快，九月中下旬早晚已明显转凉，十月需要厚外套，冬季寒冷干燥。建议先带够到十月的衣物，羽绒服和棉鞋可以到校后再买或让家里邮寄。
+          </p>
+        </details>
+        <details>
+          <summary>入学后还要复查吗？体检不合格会被退学吗？</summary>
+          <p>
+            新生入学后会进行资格复查与健康检查。绝大多数同学不受影响；确有问题的，学校会按规定单独处理，通常先提供休学治疗等选择，不会一刀切。如实填报即可。
+          </p>
+        </details>
+        <details>
+          <summary>报到期间怎么防骗？</summary>
+          <p>
+            记住三条：<strong>一、学校不会通过电话或短信要求你向私人账户转账</strong
+            >；<strong>二、所有缴费只走通知书写明的官方渠道</strong
+            >；<strong>三、自称「学长代收费」「内部办宿舍」的一律不理</strong
+            >。有疑问就找迎新点穿工作服的老师或志愿者当面确认。
+          </p>
+        </details>
+      </div>
+      <p class="empty" id="empty">没有匹配的问题，换个关键词试试。</p>
+
+      <footer>
+        <p>
+          本页为离线速查版，内容为通用流程与常识，<strong>不替代学校官方通知</strong>。
+          个人具体安排请以《录取通知书》及随附材料、学校官网与官方公众号发布的迎新通知为准。
+        </p>
+        <p><a href="/">← 网络恢复后返回吉小农智能问答</a></p>
+      </footer>
+    </main>
+
+    <script>
+      // 纯本地关键词过滤，无任何网络请求。失败也不影响页面内容可读性。
+      (function () {
+        var input = document.getElementById('q');
+        var box = document.getElementById('faq');
+        var empty = document.getElementById('empty');
+        if (!input || !box || !empty) return;
+        var items = Array.prototype.slice.call(box.querySelectorAll('details'));
+        input.addEventListener('input', function () {
+          var kw = String(input.value || '').trim().toLowerCase();
+          var shown = 0;
+          items.forEach(function (el) {
+            var hit = !kw || el.textContent.toLowerCase().indexOf(kw) !== -1;
+            el.style.display = hit ? '' : 'none';
+            if (hit) shown++;
+          });
+          empty.style.display = shown === 0 ? 'block' : 'none';
+        });
+      })();
+    </script>
+  </body>
+</html>

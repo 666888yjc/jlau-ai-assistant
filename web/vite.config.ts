@@ -13,6 +13,12 @@ import { mockMiddleware } from './mock/server';
  *     转发到真实后端，规避浏览器跨域（CORS），等价于生产态云函数代理。
  *
  * 生产部署由 CloudBase HTTP 云函数代理；前端静态产物同源托管，无需 CORS。
+ *
+ * T01（LOAD-4 / MAINT-5）：
+ *  - manualChunks 把 react / react-dom / react-router 拆为独立 vendor chunk，
+ *    使业务 chunk 与框架 chunk 走不同缓存周期，并让 scripts/check-bundle-size.mjs
+ *    能对「首屏业务 chunk」单独设阈值。
+ *  - reportCompressedSize 打开，构建日志直接给出 gzip 后体积，便于对齐 ≤150KB 预算。
  */
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -33,6 +39,28 @@ export default defineConfig(({ mode }) => {
         },
       },
     ],
+    build: {
+      // 体积门禁靠 scripts/check-bundle-size.mjs 兜底，这里只负责把真实 gzip 体积打进日志
+      reportCompressedSize: true,
+      // 超过 150KB（LOAD-4 预算）即在构建日志给出警告，早于 CI 门禁暴露问题
+      chunkSizeWarningLimit: 150,
+      rollupOptions: {
+        output: {
+          /**
+           * 框架层与业务层分离。注意：不按 node_modules 一刀切，
+           * 否则 lucide-react 的按需图标会被聚成一个大 vendor，反而拖慢首屏。
+           */
+          manualChunks(id: string) {
+            if (!id.includes('node_modules')) return undefined;
+            if (/[\\/]node_modules[\\/]react-router/.test(id)) return 'vendor-router';
+            if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
+              return 'vendor-react';
+            }
+            return undefined;
+          },
+        },
+      },
+    },
     server: {
       port: 3000,
       host: true,
