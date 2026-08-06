@@ -1,0 +1,101 @@
+<svg viewBox="0 0 375 812" width="375" height="812" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif">
+  <!-- ============ STATUS BAR ============ -->
+  <rect x="0" y="0" width="375" height="88" fill="#FFFFFF"/>
+  <text x="24" y="28" font-size="14" font-weight="600" fill="#1A1A1A">9:41</text>
+  <g stroke="#1A1A1A" stroke-width="1.5" fill="none" stroke-linecap="round">
+    <rect x="344" y="18" width="22" height="11" rx="3"/>
+    <rect x="347" y="21" width="13" height="5" rx="1.5" fill="#1A1A1A" stroke="none"/>
+    <rect x="368" y="21" width="1.6" height="5" rx="0.8" fill="#1A1A1A" stroke="none"/>
+  </g>
+
+  <!-- ============ NAV BAR ============ -->
+  <line x1="0" y1="88" x2="375" y2="88" stroke="#E6E8EB" stroke-width="1"/>
+  <path d="M22 72 L14 64 M22 72 L14 80" fill="none" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="187.5" y="73" text-anchor="middle" font-size="17" font-weight="600" fill="#1A1A1A">场景分类</text>
+  <!-- Search icon 20 (Lucide Search) -->
+  <g transform="translate(338,64)" stroke="#8A9099" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="5" cy="5" r="6"/>
+    <path d="M9.5 9.5 L14 14"/>
+  </g>
+
+  <rect x="0" y="88" width="375" height="724" fill="#F5F6F7"/>
+
+  <!-- ============ HEADER ============ -->
+  <text x="16" y="128" font-size="17" font-weight="600" fill="#1A1A1A">选择你关心的问题</text>
+  <text x="16" y="152" font-size="13" fill="#8A9099">MVP 已开通「新生报到」，其余场景即将开放</text>
+
+  <!-- ============ SCENARIO CARDS (2x2 grid) ============ -->
+  <!-- card width = (375 - 32 - 12)/2 = 165.5 -> 165 ; gap 12 -->
+  <!-- card 1: 新生报到 (ACTIVE) -->
+  <rect x="16" y="172" width="165" height="150" rx="16" fill="#FFFFFF" stroke="#E6E8EB" stroke-width="1"/>
+  <rect x="32" y="188" width="44" height="44" rx="12" fill="#E9F8F3"/>
+  <!-- MapPin 24 (Lucide) -->
+  <g transform="translate(54,210)" stroke="#14BF96" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 -12 C7 -12 12 -7 12 0 C12 8 0 14 0 14 C0 14 -12 8 -12 0 C-12 -7 -7 -12 0 -12 Z"/>
+    <circle cx="0" cy="0" r="4"/>
+  </g>
+  <rect x="139" y="188" width="34" height="18" rx="9" fill="#07C160"/>
+  <text x="156" y="201" text-anchor="middle" font-size="11" font-weight="500" fill="#FFFFFF">已开通</text>
+  <text x="32" y="262" font-size="17" font-weight="600" fill="#1A1A1A">新生报到</text>
+  <text x="32" y="288" font-size="13" fill="#8A9099">通知书、档案、户口</text>
+  <text x="32" y="306" font-size="13" fill="#8A9099">怎么带，流程一览</text>
+
+  <!-- card 2: 选课课业 (UPCOMING) -->
+  <rect x="194" y="172" width="165" height="150" rx="16" fill="#FFFFFF" stroke="#E6E8EB" stroke-width="1"/>
+  <rect x="210" y="188" width="44" height="44" rx="12" fill="#F2F4F3"/>
+  <!-- BookOpen 24 (Lucide) -->
+  <g transform="translate(232,210)" stroke="#B4B9C0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-12 -2 C-8 -6 -1 -6 0 -2 C1 -6 8 -6 12 -2 V12 C8 8 1 8 0 12 C-1 8 -8 8 -12 12 Z"/>
+    <path d="M0 -2 V12"/>
+  </g>
+  <rect x="317" y="188" width="34" height="18" rx="9" fill="#F2F4F3"/>
+  <text x="334" y="201" text-anchor="middle" font-size="11" fill="#8A9099">即将开放</text>
+  <text x="210" y="262" font-size="17" font-weight="600" fill="#4A4F57">选课课业</text>
+  <text x="210" y="288" font-size="13" fill="#B4B9C0">培养方案、课表、</text>
+  <text x="210" y="306" font-size="13" fill="#B4B9C0">绩点怎么查</text>
+
+  <!-- card 3: 考研升学 (UPCOMING) -->
+  <rect x="16" y="334" width="165" height="150" rx="16" fill="#FFFFFF" stroke="#E6E8EB" stroke-width="1"/>
+  <rect x="32" y="350" width="44" height="44" rx="12" fill="#F2F4F3"/>
+  <!-- GraduationCap 24 (Lucide) -->
+  <g transform="translate(54,372)" stroke="#B4B9C0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 -8 L12 -1 L0 6 L-12 -1 Z"/>
+    <path d="M-12 -1 V4 C-12 7 -6 9 0 9 C6 9 12 7 12 4 V-1"/>
+    <path d="M12 -1 L18 2 V7"/>
+    <path d="M18 7 V11"/>
+  </g>
+  <rect x="139" y="350" width="34" height="18" rx="9" fill="#F2F4F3"/>
+  <text x="156" y="363" text-anchor="middle" font-size="11" fill="#8A9099">即将开放</text>
+  <text x="32" y="424" font-size="17" font-weight="600" fill="#4A4F57">考研升学</text>
+  <text x="32" y="450" font-size="13" fill="#B4B9C0">保研政策、复习</text>
+  <text x="32" y="468" font-size="13" fill="#B4B9C0">经验、院校信息</text>
+
+  <!-- card 4: 校园生活 (UPCOMING) -->
+  <rect x="194" y="334" width="165" height="150" rx="16" fill="#FFFFFF" stroke="#E6E8EB" stroke-width="1"/>
+  <rect x="210" y="350" width="44" height="44" rx="12" fill="#F2F4F3"/>
+  <!-- Coffee 24 (Lucide) -->
+  <g transform="translate(232,372)" stroke="#B4B9C0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-11 -4 H9 V8 C9 12 6 14 1 14 H-7 C-11 14 -11 10 -11 6 Z"/>
+    <path d="M9 -2 C13 -2 13 4 9 4"/>
+    <path d="M-6 -8 C-8 -10 -4 -12 -6 -14 M0 -8 C-2 -10 2 -12 0 -14"/>
+  </g>
+  <rect x="317" y="350" width="34" height="18" rx="9" fill="#F2F4F3"/>
+  <text x="334" y="363" text-anchor="middle" font-size="11" fill="#8A9099">即将开放</text>
+  <text x="210" y="424" font-size="17" font-weight="600" fill="#4A4F57">校园生活</text>
+  <text x="210" y="450" font-size="13" fill="#B4B9C0">食堂、宿舍、快递</text>
+  <text x="210" y="468" font-size="13" fill="#B4B9C0">校医室在哪</text>
+
+  <!-- ============ FOOTER NOTE ============ -->
+  <rect x="16" y="510" width="343" height="44" rx="12" fill="#F2F4F3"/>
+  <text x="32" y="538" font-size="13" fill="#4A4F57">更多场景陆续开放，有急事可随时「转人工」。</text>
+
+  <!-- ============ BOTTOM PRIMARY CTA ============ -->
+  <rect x="16" y="700" width="343" height="48" rx="12" fill="#07C160"/>
+  <text x="187.5" y="730" text-anchor="middle" font-size="16" font-weight="600" fill="#FFFFFF">进入「新生报到」对话</text>
+
+  <!-- ============ TABBAR (local PNG only; documented, not drawn as SVG/emoji) ============ -->
+  <rect x="0" y="764" width="375" height="48" fill="#FFFFFF"/>
+  <line x1="0" y1="764" x2="375" y2="764" stroke="#E6E8EB" stroke-width="1"/>
+  <text x="93" y="792" text-anchor="middle" font-size="11" fill="#07C160">对话</text>
+  <text x="282" y="792" text-anchor="middle" font-size="11" fill="#8A9099">我的</text>
+</svg>

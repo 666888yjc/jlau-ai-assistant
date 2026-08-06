@@ -1,0 +1,46 @@
+[
+  {
+    "_id": "s_baodao",
+    "id": "baodao",
+    "name": "新生报到",
+    "lucide_icon_name": "MapPin",
+    "icon": "MapPin",
+    "kb_ref": "coze:kb_baodao_v1",
+    "sort": 1,
+    "enabled": true,
+    "created_at": "2026-07-30T08:00:00Z"
+  },
+  {
+    "_id": "s_xuanke",
+    "id": "xuanke",
+    "name": "选课",
+    "lucide_icon_name": "BookOpen",
+    "icon": "BookOpen",
+    "kb_ref": "coze:kb_xuanke_v1",
+    "sort": 2,
+    "enabled": true,
+    "created_at": "2026-07-30T08:00:00Z"
+  },
+  {
+    "_id": "s_kaoyan",
+    "id": "kaoyan",
+    "name": "考研",
+    "lucide_icon_name": "GraduationCap",
+    "icon": "GraduationCap",
+    "kb_ref": "coze:kb_kaoyan_v1",
+    "sort": 3,
+    "enabled": true,
+    "created_at": "2026-07-30T08:00:00Z"
+  },
+  {
+    "_id": "s_shenghuo",
+    "id": "shenghuo",
+    "name": "生活",
+    "lucide_icon_name": "Coffee",
+    "icon": "Coffee",
+    "kb_ref": "coze:kb_shenghuo_v1",
+    "sort": 4,
+    "enabled": true,
+    "created_at": "2026-07-30T08:00:00Z"
+  }
+]

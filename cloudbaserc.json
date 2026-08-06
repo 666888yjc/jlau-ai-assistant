@@ -1,0 +1,19 @@
+{
+  "envId": "REPLACE_WITH_YOUR_ENV_ID",
+  "functionRoot": "server",
+  "functions": [
+    {
+      "name": "jlau-ai-assistant",
+      "runtime": "Nodejs18.15",
+      "handler": "dist/index.main",
+      "memorySize": 256,
+      "timeout": 30,
+      "installDependency": true,
+      "envVariables": {}
+    }
+  ],
+  "hosting": {
+    "distPath": "web/dist",
+    "runtime": "Static"
+  }
+}

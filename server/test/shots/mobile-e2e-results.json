@@ -1,0 +1,246 @@
+{
+  "base": "http://localhost:4200",
+  "ts": "2026-08-06T08:29:15.450Z",
+  "results": [
+    {
+      "device": "iPhone 13",
+      "name": "首屏 Welcome 渲染成功并截图",
+      "pass": true,
+      "detail": "welcome-iphone-13.png"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "无横向溢出 (scrollWidth ≤ innerWidth+2)",
+      "pass": true,
+      "detail": "scrollWidth=390 innerWidth=390 dpr=3"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "顶部内容未越出视口上沿（刘海区不被遮挡）",
+      "pass": true,
+      "detail": "top=40.0px paddingTop=0px"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "「开始对话」按钮触摸目标 ≥44px",
+      "pass": true,
+      "detail": "350.0x52.0"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "tap「开始对话」跳转 /chat 成功",
+      "pass": true,
+      "detail": "/chat?scenario=baodao"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "触摸目标[输入胶囊(输入框有效命中区)] ≥44px",
+      "pass": true,
+      "detail": "298.0x44.0"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "触摸目标[发送按钮] ≥44px",
+      "pass": true,
+      "detail": "44.0x44.0"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "触摸目标[主题切换键] ≥44px",
+      "pass": true,
+      "detail": "44.0x44.0"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "触摸目标[更多菜单键] ≥44px",
+      "pass": true,
+      "detail": "44.0x44.0"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "触摸目标[猜你想问卡片] ≥44px",
+      "pass": true,
+      "detail": "280.0x44.5"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "点击输入胶囊内边距可聚焦输入框（44px 命中区有效）",
+      "pass": true,
+      "detail": "activeElement=.chat-input"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "触屏发送后收到 SSE 回复气泡（30s 内）",
+      "pass": true,
+      "detail": "回复前 40 字：\"新生报到需携带以下材料：1. 录取通知书；2. 身份证；3. 档案；4. 户口迁\""
+    },
+    {
+      "device": "iPhone 13",
+      "name": "发送后未卡在 loading 态",
+      "pass": true,
+      "detail": "spin 元素数=0"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "单次 tap 只产生 1 条用户消息（无重复提交）",
+      "pass": true,
+      "detail": "user 气泡=1"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "Chat 页截图",
+      "pass": true,
+      "detail": "chat-iphone-13.png"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "Chat 页无横向溢出",
+      "pass": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "渲染期间 console.error = 0",
+      "pass": true,
+      "detail": "0 条"
+    },
+    {
+      "device": "iPhone 13",
+      "name": "渲染期间 pageerror = 0",
+      "pass": true,
+      "detail": "0 条"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "首屏 Welcome 渲染成功并截图",
+      "pass": true,
+      "detail": "welcome-pixel-5.png"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "无横向溢出 (scrollWidth ≤ innerWidth+2)",
+      "pass": true,
+      "detail": "scrollWidth=393 innerWidth=393 dpr=2.75"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "顶部内容未越出视口上沿（刘海区不被遮挡）",
+      "pass": true,
+      "detail": "top=40.0px paddingTop=0px"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "「开始对话」按钮触摸目标 ≥44px",
+      "pass": true,
+      "detail": "353.0x52.0"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "tap「开始对话」跳转 /chat 成功",
+      "pass": true,
+      "detail": "/chat?scenario=baodao"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "触摸目标[输入胶囊(输入框有效命中区)] ≥44px",
+      "pass": true,
+      "detail": "301.0x44.0"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "触摸目标[发送按钮] ≥44px",
+      "pass": true,
+      "detail": "44.0x44.0"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "触摸目标[主题切换键] ≥44px",
+      "pass": true,
+      "detail": "44.0x44.0"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "触摸目标[更多菜单键] ≥44px",
+      "pass": true,
+      "detail": "44.0x44.0"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "触摸目标[猜你想问卡片] ≥44px",
+      "pass": true,
+      "detail": "282.4x44.5"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "点击输入胶囊内边距可聚焦输入框（44px 命中区有效）",
+      "pass": true,
+      "detail": "activeElement=.chat-input"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "触屏发送后收到 SSE 回复气泡（30s 内）",
+      "pass": true,
+      "detail": "回复前 40 字：\"新生报到需携带以下材料：1. 录取通知书；2. 身份证；3. 档案；4. 户口迁\""
+    },
+    {
+      "device": "Pixel 5",
+      "name": "发送后未卡在 loading 态",
+      "pass": true,
+      "detail": "spin 元素数=0"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "单次 tap 只产生 1 条用户消息（无重复提交）",
+      "pass": true,
+      "detail": "user 气泡=1"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "Chat 页截图",
+      "pass": true,
+      "detail": "chat-pixel-5.png"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "Chat 页无横向溢出",
+      "pass": true,
+      "detail": "scrollWidth=393 innerWidth=393"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "渲染期间 console.error = 0",
+      "pass": true,
+      "detail": "0 条"
+    },
+    {
+      "device": "Pixel 5",
+      "name": "渲染期间 pageerror = 0",
+      "pass": true,
+      "detail": "0 条"
+    },
+    {
+      "device": "weak-net",
+      "name": "弱网下出现 loading 态（发送按钮转圈）",
+      "pass": true,
+      "detail": "spin=true"
+    },
+    {
+      "device": "weak-net",
+      "name": "弱网下 800ms 延迟仍能收到回复",
+      "pass": true,
+      "detail": "新生报到需携带以下材料：1. 录取通知书；2. 身份证；3. 档案；4. 户口迁"
+    },
+    {
+      "device": "weak-net",
+      "name": "连点 3 次只提交 1 条（防双重提交）",
+      "pass": true,
+      "detail": "user气泡=1 /chat 请求数=1"
+    },
+    {
+      "device": "weak-net",
+      "name": "弱网期间 pageerror = 0",
+      "pass": true,
+      "detail": "0 条"
+    }
+  ]
+}

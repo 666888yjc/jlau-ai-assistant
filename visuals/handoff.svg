@@ -1,0 +1,81 @@
+<svg viewBox="0 0 375 812" width="375" height="812" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif">
+  <!-- ============ STATUS BAR ============ -->
+  <rect x="0" y="0" width="375" height="88" fill="#FFFFFF"/>
+  <text x="24" y="28" font-size="14" font-weight="600" fill="#1A1A1A">9:41</text>
+  <g stroke="#1A1A1A" stroke-width="1.5" fill="none" stroke-linecap="round">
+    <rect x="344" y="18" width="22" height="11" rx="3"/>
+    <rect x="347" y="21" width="13" height="5" rx="1.5" fill="#1A1A1A" stroke="none"/>
+    <rect x="368" y="21" width="1.6" height="5" rx="0.8" fill="#1A1A1A" stroke="none"/>
+  </g>
+
+  <!-- ============ NAV BAR ============ -->
+  <line x1="0" y1="88" x2="375" y2="88" stroke="#E6E8EB" stroke-width="1"/>
+  <path d="M22 72 L14 64 M22 72 L14 80" fill="none" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="187.5" y="73" text-anchor="middle" font-size="17" font-weight="600" fill="#1A1A1A">转人工 / 联系学工</text>
+
+  <rect x="0" y="88" width="375" height="724" fill="#F5F6F7"/>
+
+  <!-- ============ INTRO CARD ============ -->
+  <rect x="16" y="108" width="343" height="84" rx="16" fill="#FFFFFF" stroke="#E6E8EB" stroke-width="1"/>
+  <!-- HelpCircle 20 (Lucide) -->
+  <g transform="translate(36,128)" stroke="#14BF96" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="0" cy="0" r="9"/>
+    <path d="M0 -3.5 C1.5 -3.5 2.5 -2.2 2.5 -1 C2.5 0.5 1.5 1 0.5 2 C-0.5 2.8 -0.5 4 0.5 4.5"/>
+    <circle cx="0" cy="7.5" r="1" fill="#14BF96" stroke="none"/>
+  </g>
+  <text x="64" y="134" font-size="16" font-weight="600" fill="#1A1A1A">没有解决你的问题？</text>
+  <text x="64" y="162" font-size="13" fill="#8A9099">可联系学工处或辅导员，也可留资由</text>
+  <text x="64" y="182" font-size="13" fill="#8A9099">学长学姐跟进处理。</text>
+
+  <!-- ============ 学工处 CONTACT BLOCK ============ -->
+  <text x="16" y="228" font-size="13" font-weight="500" fill="#8A9099">学工处（学生工作部）</text>
+  <rect x="16" y="240" width="343" height="76" rx="12" fill="#FFFFFF" stroke="#E6E8EB" stroke-width="1"/>
+  <!-- Phone 16 (Lucide) -->
+  <g transform="translate(36,262)" stroke="#1A6B3C" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-3 -6 C-1 -6 4 -3 5 0 C6 3 5 4 7 7 C9 10 11 11 10 13 C9 16 2 18 -2 14 C-4 11 -8 6 -7 2 C-6 0 -5 -3 -3 -6 Z"/>
+  </g>
+  <text x="60" y="276" font-size="16" font-weight="600" fill="#1A1A1A">0431-84532980</text>
+  <text x="60" y="298" font-size="11" fill="#8A9099">工作日 8:30–11:30 / 14:00–17:00</text>
+  <text x="339" y="276" text-anchor="end" font-size="13" font-weight="500" fill="#07C160">拨打</text>
+
+  <!-- ============ 辅导员 CONTACT BLOCK ============ -->
+  <text x="16" y="340" font-size="13" font-weight="500" fill="#8A9099">辅导员（所在学院学工办）</text>
+  <rect x="16" y="352" width="343" height="64" rx="12" fill="#FFFFFF" stroke="#E6E8EB" stroke-width="1"/>
+  <g transform="translate(36,374)" stroke="#1A6B3C" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="0" cy="0" r="9"/>
+    <path d="M-4 -1 L4 -1 M0 -5 V5"/>
+  </g>
+  <text x="60" y="378" font-size="15" font-weight="500" fill="#1A1A1A">联系所在学院学工办</text>
+  <text x="60" y="400" font-size="11" fill="#8A9099">学院分配以录取专业为准，可到校后查询</text>
+  <text x="339" y="378" text-anchor="end" font-size="13" font-weight="500" fill="#07C160">复制</text>
+
+  <!-- ============ 留资 FORM ============ -->
+  <text x="16" y="448" font-size="13" font-weight="500" fill="#8A9099">留资转人工（选填）</text>
+  <!-- input: 学院/专业 -->
+  <rect x="16" y="460" width="343" height="44" rx="12" fill="#FFFFFF" stroke="#E6E8EB" stroke-width="1"/>
+  <text x="32" y="487" font-size="14" fill="#B4B9C0">你的学院 / 专业（选填）</text>
+  <!-- textarea: 问题描述 -->
+  <rect x="16" y="512" width="343" height="96" rx="12" fill="#FFFFFF" stroke="#E6E8EB" stroke-width="1"/>
+  <text x="32" y="538" font-size="14" fill="#B4B9C0">描述你的问题…</text>
+
+  <!-- ============ SUBMIT BUTTON ============ -->
+  <rect x="16" y="620" width="343" height="48" rx="12" fill="#07C160"/>
+  <!-- Send icon 20 -->
+  <g transform="translate(150,644)" stroke="#FFFFFF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-6 -1 L5 -5 M-6 -1 L5 3 M-6 -1 L8 -1"/>
+    <path d="M-6 3 L-6 -5"/>
+  </g>
+  <text x="200" y="650" font-size="16" font-weight="600" fill="#FFFFFF">提交并转人工</text>
+
+  <!-- ============ SUCCESS TOAST (Success state example) ============ -->
+  <rect x="16" y="688" width="343" height="44" rx="12" fill="#E9F8F3" stroke="#14BF96" stroke-width="1"/>
+  <!-- CheckCircle 16 -->
+  <g transform="translate(36,710)" stroke="#1A6B3C" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="0" cy="0" r="8"/>
+    <path d="M-4 0 L-1 3 L5 -4"/>
+  </g>
+  <text x="60" y="715" font-size="13" font-weight="500" fill="#0F3D2A">已提交，学工处会尽快与你联系</text>
+
+  <!-- footer compliance -->
+  <text x="187.5" y="772" text-anchor="middle" font-size="11" fill="#B4B9C0">AI 生成内容仅供参考，紧急事务以官方通知为准</text>
+</svg>

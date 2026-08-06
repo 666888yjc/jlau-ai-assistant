@@ -1,0 +1,68 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/34686/WorkBuddy/2026-07-30-15-35-58/jlau-ai-assistant/web[39m
+
+ [32m✓[39m test/calendar-data.test.ts [2m([22m[2m31 tests[22m[2m)[22m[90m 53[2mms[22m[39m
+ [32m✓[39m test/food-data.test.ts [2m([22m[2m11 tests[22m[2m)[22m[90m 93[2mms[22m[39m
+ [32m✓[39m test/storage.test.ts [2m([22m[2m23 tests[22m[2m)[22m[90m 63[2mms[22m[39m
+ [32m✓[39m test/profile.test.ts [2m([22m[2m38 tests[22m[2m)[22m[90m 99[2mms[22m[39m
+ [32m✓[39m test/p2-modules.test.ts [2m([22m[2m41 tests[22m[2m)[22m[90m 52[2mms[22m[39m
+[90mstdout[2m | test/design-review.test.ts[2m > [22m[2m审查⑤ 移动端触控目标尺寸[2m > [22m[2m【已知风险·记录用】Switch 轨道与单项清除按钮的实际高度
+[22m[39m[QA 触控实测] .switch=24px  .danger-btn=32px  .sticker-toggle=36px
+
+ [32m✓[39m test/design-review.test.ts [2m([22m[2m34 tests[22m[2m)[22m[90m 79[2mms[22m[39m
+[90mstderr[2m | test/module-guard.test.tsx[2m > [22m[2mModuleGuard —— 开关生效[2m > [22m[2m模块开启时正常渲染子页面
+[22m[39m⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ [32m✓[39m test/module-guard.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 676[2mms[22m[39m
+   [33m[2m✓[22m[39m 【AC③】注册表加一条 → 模块中心列表自动出现（无 id 分支）[2m > [22m往注册表注入假模块 qa-ghost，ModulesPage 列表自动多出一行 [33m509[2mms[22m[39m
+[90mstderr[2m | test/privacy-page.test.tsx[2m > [22m[2mPrivacyPage —— 清单展示[2m > [22m[2m渲染出全部已登记数据项的中文名称与用途
+[22m[39m⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+[90mstderr[2m | test/sticker.test.tsx[2m > [22m[2m贴纸插入 —— 不触发任何后端请求（架构 §2.6 约定 1）[2m > [22m[2m【核心】插入贴纸后 streamChat 一次都没有被调用
+[22m[39m⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+[90mstderr[2m | test/mobile-polish.test.tsx[2m > [22m[2m改动 2 —— InputBar 移动键盘渐进增强[2m > [22m[2mChatPage 内的输入框同样带上这两个属性（真实调用点）
+[22m[39m⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ [32m✓[39m test/privacy-page.test.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 1979[2mms[22m[39m
+[90mstderr[2m | test/mobile-polish.test.tsx[2m > [22m[2m改动 3 —— SSE 息屏挂起检测（场景 A：挂起 → 出提示，且不自动重发）[2m > [22m[2m【边界】不在 loading 中（无在途请求）→ 回前台不出提示
+[22m[39mWarning: An update to ChatPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at ChatPage (C:\Users\34686\WorkBuddy\2026-07-30-15-35-58\jlau-ai-assistant\web\src\pages\ChatPage.tsx:85:42)
+    at Router (C:\Users\34686\WorkBuddy\2026-07-30-15-35-58\jlau-ai-assistant\web\node_modules\react-router\dist\umd\react-router.development.js:1203:17)
+    at MemoryRouter (C:\Users\34686\WorkBuddy\2026-07-30-15-35-58\jlau-ai-assistant\web\node_modules\react-router\dist\umd\react-router.development.js:1097:7)
+
+ [32m✓[39m test/note-import.test.tsx [2m([22m[2m19 tests[22m[2m)[22m[33m 2560[2mms[22m[39m
+   [33m[2m✓[22m[39m 笔记导入 —— 基础链路[2m > [22m【AC】粘贴 5 行 → 确认导入 → 记忆增加 5 条 [33m497[2mms[22m[39m
+ [32m✓[39m test/sticker.test.tsx [2m([22m[2m21 tests[22m[2m)[22m[33m 4824[2mms[22m[39m
+   [33m[2m✓[22m[39m 贴纸插入 —— 不触发任何后端请求（架构 §2.6 约定 1）[2m > [22m【核心】插入贴纸后 streamChat 一次都没有被调用 [33m449[2mms[22m[39m
+   [33m[2m✓[22m[39m 贴纸插入 —— 不触发任何后端请求（架构 §2.6 约定 1）[2m > [22m连续插入 6 张贴纸仍然零请求 [33m1037[2mms[22m[39m
+   [33m[2m✓[22m[39m 贴纸插入 —— 不触发任何后端请求（架构 §2.6 约定 1）[2m > [22m贴纸气泡带可读回退文案 [贴纸·标签]，不是空气泡 [33m401[2mms[22m[39m
+   [33m[2m✓[22m[39m send() —— history 过滤贴纸（架构 §2.6 约定 4 / N5）[2m > [22m【核心】发送提问时 history 中不包含任何 [贴纸·…] 内容 [33m654[2mms[22m[39m
+   [33m[2m✓[22m[39m 贴纸持久化 —— 复用既有 localStorage 链路（会话持久化逻辑零改动）[2m > [22m插入贴纸后经既有 250ms 防抖写入 jxn-conv-<scenario> [33m447[2mms[22m[39m
+   [33m[2m✓[22m[39m 贴纸持久化 —— 复用既有 localStorage 链路（会话持久化逻辑零改动）[2m > [22m未引入新的存储键：只写 jxn-conv-*，不新增任何 jxn-sticker-* 之类的键 [33m404[2mms[22m[39m
+ [32m✓[39m test/mobile-polish.test.tsx [2m([22m[2m28 tests[22m[2m)[22m[33m 5268[2mms[22m[39m
+   [33m[2m✓[22m[39m 改动 3 —— SSE 息屏挂起检测（场景 A：挂起 → 出提示，且不自动重发）[2m > [22m【核心 A2】挂起提示出现后 streamChat 没有被自动再次调用（只提示、不自动重发） [33m605[2mms[22m[39m
+   [33m[2m✓[22m[39m 改动 3 —— 场景 C：重新生成 = 只多发一次，history 与首发一致[2m > [22m【核心 C】点「重新生成」后 streamChat 总调用次数 = 2，且第二次 history 与第一次逐字一致 [33m728[2mms[22m[39m
+   [33m[2m✓[22m[39m 改动 3 —— 场景 C：重新生成 = 只多发一次，history 与首发一致[2m > [22m【核心 C】重发后没有重复的用户气泡、没有卡死的空 assistant 占位 [33m342[2mms[22m[39m
+   [33m[2m✓[22m[39m 改动 3 —— 场景 C：重新生成 = 只多发一次，history 与首发一致[2m > [22m重发的请求体字段结构逐字节不变（scenario_id / message / history / conversation_id 四字段） [33m325[2mms[22m[39m
+   [33m[2m✓[22m[39m 改动 3 —— 场景 D：主动 abort 不写回错误态[2m > [22m【核心 D】abort 掉挂死的流后，不出现 error-banner / 「网络开小差」 [33m598[2mms[22m[39m
+   [33m[2m✓[22m[39m 回归护栏 —— 会话持久化与请求体零改动[2m > [22m挂起→重新生成全过程后，localStorage 仍只写 jxn-conv-<scenario> 一个键 [33m537[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m11 passed[39m[22m[90m (11)[39m
+[2m      Tests [22m [1m[32m279 passed[39m[22m[90m (279)[39m
+[2m   Start at [22m 00:09:00
+[2m   Duration [22m 12.33s[2m (transform 3.35s, setup 10.11s, collect 8.61s, tests 15.75s, environment 31.48s, prepare 4.85s)[22m
+

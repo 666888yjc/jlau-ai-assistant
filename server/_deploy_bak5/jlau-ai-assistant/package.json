@@ -1,0 +1,11 @@
+{
+  "name": "jlau-ai-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2"
+  }
+}

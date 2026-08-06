@@ -1,0 +1,85 @@
+<svg viewBox="0 0 375 812" width="375" height="812" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <!-- page bg -->
+  <rect x="0" y="0" width="375" height="812" fill="#F5F6F7"/>
+
+  <!-- ===== Nav bar ===== -->
+  <rect x="0" y="0" width="375" height="44" fill="#FFFFFF"/>
+  <line x1="0" y1="44" x2="375" y2="44" stroke="#E6E8EB" stroke-width="1"/>
+  <!-- back chevron (Lucide-style line icon) -->
+  <path d="M22 22 L14 14 M22 22 L14 30" fill="none" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round"/>
+  <!-- title -->
+  <text x="187.5" y="28" text-anchor="middle" font-size="17" font-weight="600" fill="#1A1A1A">吉农 AI 助手</text>
+  <!-- more (...) -->
+  <circle cx="346" cy="22" r="1.6" fill="#1A1A1A"/>
+  <circle cx="352" cy="22" r="1.6" fill="#1A1A1A"/>
+  <circle cx="358" cy="22" r="1.6" fill="#1A1A1A"/>
+
+  <!-- small brand line -->
+  <text x="187.5" y="68" text-anchor="middle" font-size="12" fill="#1A6B3C">吉小农 · 校园一站式 AI 助手</text>
+
+  <!-- ===== Message list ===== -->
+  <!-- AI bubble 1 -->
+  <circle cx="28" cy="112" r="18" fill="#E9F8F3" stroke="#14BF96" stroke-width="2"/>
+  <text x="28" y="117" text-anchor="middle" font-size="14" font-weight="600" fill="#14BF96">吉</text>
+  <rect x="52" y="86" width="64" height="20" rx="10" fill="#1A6B3C"/>
+  <text x="84" y="100" text-anchor="middle" font-size="12" fill="#FFFFFF">吉小农</text>
+  <rect x="52" y="112" width="276" height="62" rx="12" fill="#E9F8F3"/>
+  <text x="66" y="136" font-size="14" fill="#0F3D2A">同学你好，我是吉小农，吉农的一站式 AI</text>
+  <text x="66" y="158" font-size="14" fill="#0F3D2A">助手。选课、报到、校园生活都能问我～</text>
+
+  <!-- User bubble -->
+  <rect x="101" y="190" width="258" height="40" rx="12" fill="#ECEEF1"/>
+  <text x="345" y="215" text-anchor="end" font-size="14" fill="#1A1A1A">图书馆几点关门？</text>
+  <circle cx="347" cy="210" r="18" fill="#ECEEF1" stroke="#B4B9C0" stroke-width="1.5"/>
+  <text x="347" y="215" text-anchor="middle" font-size="13" fill="#8A9099">我</text>
+
+  <!-- AI bubble 2 (answer + source chip) -->
+  <circle cx="28" cy="282" r="18" fill="#E9F8F3" stroke="#14BF96" stroke-width="2"/>
+  <text x="28" y="287" text-anchor="middle" font-size="14" font-weight="600" fill="#14BF96">吉</text>
+  <rect x="52" y="258" width="292" height="86" rx="12" fill="#E9F8F3"/>
+  <text x="66" y="282" font-size="14" fill="#0F3D2A">中心图书馆：周一至周日 8:00–22:00；</text>
+  <text x="66" y="304" font-size="14" fill="#0F3D2A">考试周延长至 23:00。</text>
+  <rect x="66" y="316" width="150" height="20" rx="10" fill="#FFFFFF" stroke="#1A6B3C" stroke-width="1"/>
+  <text x="76" y="330" font-size="11" fill="#1A6B3C">来源：图书馆官网</text>
+
+  <!-- ===== 猜你想问 ===== -->
+  <text x="16" y="384" font-size="15" font-weight="600" fill="#1A1A1A">猜你想问</text>
+  <!-- 2x2 text cards -->
+  <rect x="16" y="396" width="168" height="46" rx="12" fill="#F2F4F3"/>
+  <circle cx="36" cy="419" r="8" fill="#14BF96"/>
+  <text x="52" y="424" font-size="13" fill="#4A4F57">图书馆开放时间</text>
+
+  <rect x="191" y="396" width="168" height="46" rx="12" fill="#F2F4F3"/>
+  <circle cx="211" cy="419" r="8" fill="#14BF96"/>
+  <text x="227" y="424" font-size="13" fill="#4A4F57">新生报到流程</text>
+
+  <rect x="16" y="450" width="168" height="46" rx="12" fill="#F2F4F3"/>
+  <circle cx="36" cy="473" r="8" fill="#14BF96"/>
+  <text x="52" y="478" font-size="13" fill="#4A4F57">本学期校历</text>
+
+  <rect x="191" y="450" width="168" height="46" rx="12" fill="#F2F4F3"/>
+  <circle cx="211" cy="473" r="8" fill="#14BF96"/>
+  <text x="227" y="478" font-size="13" fill="#4A4F57">校园地图导航</text>
+
+  <!-- ===== Input bar ===== -->
+  <rect x="0" y="748" width="375" height="64" fill="#FFFFFF"/>
+  <line x1="0" y1="748" x2="375" y2="748" stroke="#E6E8EB" stroke-width="1"/>
+  <rect x="16" y="762" width="268" height="40" rx="20" fill="#F2F4F3"/>
+  <text x="32" y="787" font-size="14" fill="#B4B9C0">问问吉小农…</text>
+  <!-- mic icon -->
+  <g stroke="#8A9099" stroke-width="2" fill="none" stroke-linecap="round">
+    <rect x="297" y="774" width="9" height="14" rx="4.5" fill="#8A9099" stroke="none"/>
+    <path d="M292.5 786 v3 a6 6 0 0 0 12 0 v-3"/>
+  </g>
+  <!-- send button (WeChat green) -->
+  <circle cx="344" cy="782" r="18" fill="#07C160"/>
+  <path d="M338 782 L350 776 M338 782 L350 788 M338 782 L352 782" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- ===== validation callouts (review annotations) ===== -->
+  <g fill="#8A9099" font-size="11">
+    <text x="16" y="524">验证点①：2×2 文字卡，单卡 168px 宽，词组不换行、不拥挤（通过）</text>
+    <text x="16" y="542">验证点②：AI 气泡=薄荷绿淡底(#E9F8F3) vs 用户气泡=中性灰(#ECEEF1)，左上/右上</text>
+    <text x="16" y="560">小切角镜像，一眼可辨；AI 名 chip 用深林绿(#1A6B3C)底白字，对比达标（通过）</text>
+    <text x="16" y="578">发送按钮=微信绿(#07C160)，薄荷绿仅作 AI 身份，绿色不抢按钮。</text>
+  </g>
+</svg>

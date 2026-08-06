@@ -1,0 +1,18 @@
+# CloudBase 云函数上传忽略规则（类比 .gitignore）
+# 安全红线：绝不把 .env 上传到云端，key 通过平台「环境变量」注入。
+.env
+.env.*
+*.local
+
+# 依赖由平台 installDependency 自动安装（或由本地 node_modules 上传）
+node_modules
+
+# 运行时日志与本地数据（云函数临时文件系统，不随包）
+*.log
+data
+
+# 源码与测试不进生产包（dist 已编译，kb 需保留）
+src
+test
+coverage
+*.tsbuildinfo

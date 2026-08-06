@@ -1,0 +1,25 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/34686/WorkBuddy/2026-07-30-15-35-58/jlau-ai-assistant/server[39m
+
+ [32m✓[39m test/handoffIntent.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 9[2mms[22m[39m
+ [32m✓[39m test/kbSource.test.ts [2m([22m[2m8 tests[22m[2m)[22m[90m 35[2mms[22m[39m
+ [32m✓[39m test/amap.test.ts [2m([22m[2m9 tests[22m[2m | [22m[33m1 skipped[39m[2m)[22m[90m 17[2mms[22m[39m
+[90mstderr[2m | test/mapSource.test.ts[2m > [22m[2m地图问题的来源不再张冠李戴[2m > [22m[2m未配置 AMAP_API_KEY：无实时数据则不标注高德来源
+[22m[39m[amap] poiAround 失败 AMAP_API_KEY 未配置
+
+ [32m✓[39m test/mapSource.test.ts [2m([22m[2m8 tests[22m[2m)[22m[90m 128[2mms[22m[39m
+ [32m✓[39m test/siliconflow.test.ts [2m([22m[2m13 tests[22m[2m)[22m[90m 144[2mms[22m[39m
+ [32m✓[39m test/rateLimit.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 643[2mms[22m[39m
+   [33m[2m✓[22m[39m POST /api/v1/feedback 触发 429[2m > [22m超过 RATE_DATA_MAX 后返回 429 + code 4290 [33m635[2mms[22m[39m
+ [32m✓[39m test/feedback.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 124[2mms[22m[39m
+ [32m✓[39m test/humanHandoff.test.ts [2m([22m[2m6 tests[22m[2m)[22m[90m 141[2mms[22m[39m
+ [32m✓[39m test/scenarios.test.ts [2m([22m[2m9 tests[22m[2m)[22m[90m 176[2mms[22m[39m
+ [32m✓[39m test/chat.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 823[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m10 passed[39m[22m[90m (10)[39m
+[2m      Tests [22m [1m[32m73 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (74)[39m
+[2m   Start at [22m 19:49:53
+[2m   Duration [22m 3.71s[2m (transform 968ms, setup 262ms, collect 5.88s, tests 2.24s, environment 6ms, prepare 4.07s)[22m
+
+^C

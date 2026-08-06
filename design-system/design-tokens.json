@@ -1,0 +1,217 @@
+{
+  "meta": {
+    "product": "吉农 AI 助手 (JLAU Campus AI Assistant)",
+    "platform": "wechat-mini-program",
+    "register": "product",
+    "iconLibrary": "lucide + 自绘品牌资产 (Mascot / BrandMark / Illustration / SceneIcon)",
+    "iconSizes": [16, 20, 24],
+    "fontStrategy": "system-stack only（不引 Web 字体：中文子集首屏代价过高，性格交由字重 + 字距层级承担）",
+    "brandLock": "绿色系锁定 + 麦金二级强调。PM 已复签：主色由微信绿 #07C160 改为去饱和农大绿 #3D6B51（仍在绿色系内，no blue，仅降饱和、加深）；新增麦金 #B58234 作二级图形强调，用量 ≤1 处/屏。",
+    "designIntent": "「田垄与纸」—— 去饱和农大绿 + 温暖纸质中性底 + 一抹麦金。绿从「铺满」退回「点到」：只出现在主操作、品牌标识、用户气泡。"
+  },
+  "color": {
+    "bg": { "value": "#FAF9F5", "type": "color", "role": "页面纸底（暖米白）" },
+    "surface": { "value": "#FFFFFF", "type": "color", "role": "卡片 / AI 气泡" },
+    "surfaceWarm": { "value": "#F2F1EB", "type": "color", "role": "输入底 / 分组底" },
+    "surfaceTint": { "value": "#EDF2ED", "type": "color", "role": "品牌极淡底（图标井）" },
+    "glass": { "value": "#FFFFFF", "type": "color", "role": "停用毛玻璃，退化为实色表面（保留 key 作安全网）" },
+    "glassBorder": { "value": "#E4E2D9", "type": "color", "role": "同上，退化为普通边框" },
+    "fg": { "value": "#1B1F1C", "type": "color", "role": "正文主色（墨）" },
+    "fg2": { "value": "#4C534E", "type": "color", "role": "次级文字" },
+    "muted": { "value": "#69716C", "type": "color", "role": "三级 / 说明文字（AA 4.8:1）" },
+    "meta": { "value": "#9AA19B", "type": "color", "role": "占位符 / 装饰性 meta" },
+    "border": { "value": "#E4E2D9", "type": "color", "role": "默认边框" },
+    "borderSoft": { "value": "#EFEDE5", "type": "color", "role": "发丝分隔线" },
+    "accent": { "value": "#3D6B51", "type": "color", "role": "主色·农大绿（白字 6.05:1 AA）" },
+    "accentHover": { "value": "#35604A", "type": "color", "role": "主色 hover" },
+    "accentActive": { "value": "#2E5440", "type": "color", "role": "主色按下" },
+    "accentOn": { "value": "#FFFFFF", "type": "color", "role": "主色上的文字" },
+    "accent2": { "value": "#79A187", "type": "color", "role": "淡绿·图形 / 分隔 / 次强调（CSS 变量 --accent-2）" },
+    "accent3": { "value": "#2E5440", "type": "color", "role": "深绿·标题 / 链接 / 品牌字（CSS 变量 --accent-3）" },
+    "grain": { "value": "#B58234", "type": "color", "role": "麦金强调（图形，破满屏绿，≤1 处/屏）" },
+    "grainDeep": { "value": "#8C6220", "type": "color", "role": "麦金文字级（AA）" },
+    "grainSoft": { "value": "#F4EBD9", "type": "color", "role": "麦金浅底" },
+    "bubbleUser": { "value": "#3D6B51", "type": "color", "role": "用户气泡：品牌绿实色" },
+    "bubbleUserFg": { "value": "#FFFFFF", "type": "color", "role": "用户气泡文字（CSS 变量 --bubble-user-fg）" },
+    "bubbleAi": { "value": "#FFFFFF", "type": "color", "role": "AI 气泡：纸白 + 发丝边" },
+    "bubbleAiFg": { "value": "#1B1F1C", "type": "color", "role": "AI 气泡文字" },
+    "success": { "value": "#3F7A55", "type": "color", "role": "成功（克制绿）" },
+    "warn": { "value": "#B58234", "type": "color", "role": "警告（= 麦金，复用）" },
+    "danger": { "value": "#A8453C", "type": "color", "role": "错误（砖红，非荧光红）" },
+    "dangerSoft": { "value": "#F7EAE8", "type": "color", "role": "错误浅底" },
+    "link": { "value": "#2E5440", "type": "color", "role": "链接（深绿 + 下划线，非蓝）" }
+  },
+  "colorDark": {
+    "bg": { "value": "#131512", "type": "color" },
+    "surface": { "value": "#1B1E19", "type": "color" },
+    "surfaceWarm": { "value": "#232720", "type": "color" },
+    "surfaceTint": { "value": "#1C2A22", "type": "color" },
+    "glass": { "value": "#1B1E19", "type": "color" },
+    "glassBorder": { "value": "#2C302A", "type": "color" },
+    "fg": { "value": "#E7E9E3", "type": "color" },
+    "fg2": { "value": "#B0B5AE", "type": "color" },
+    "muted": { "value": "#848A82", "type": "color" },
+    "meta": { "value": "#616760", "type": "color" },
+    "border": { "value": "#2C302A", "type": "color" },
+    "borderSoft": { "value": "#242822", "type": "color" },
+    "accent": { "value": "#5E9C78", "type": "color" },
+    "accentHover": { "value": "#6BAA85", "type": "color" },
+    "accentActive": { "value": "#4A8263", "type": "color" },
+    "accentOn": { "value": "#0F1A14", "type": "color" },
+    "accent2": { "value": "#7CB894", "type": "color" },
+    "accent3": { "value": "#A8CDB6", "type": "color" },
+    "grain": { "value": "#D2A055", "type": "color" },
+    "grainDeep": { "value": "#E0B570", "type": "color" },
+    "grainSoft": { "value": "#2E2617", "type": "color" },
+    "bubbleUser": { "value": "#33604A", "type": "color" },
+    "bubbleUserFg": { "value": "#EAF3ED", "type": "color" },
+    "bubbleAi": { "value": "#1B1E19", "type": "color" },
+    "bubbleAiFg": { "value": "#E7E9E3", "type": "color" },
+    "success": { "value": "#5E9C78", "type": "color" },
+    "warn": { "value": "#D2A055", "type": "color" },
+    "danger": { "value": "#D9736A", "type": "color" },
+    "dangerSoft": { "value": "#2A1B19", "type": "color" },
+    "link": { "value": "#A8CDB6", "type": "color" }
+  },
+  "gradient": {
+    "brand": {
+      "value": "var(--surface)",
+      "type": "gradient",
+      "role": "安全网：渐变体系已下线，降级为中性表面实色"
+    },
+    "primary": {
+      "value": "var(--accent)",
+      "type": "gradient",
+      "role": "安全网：主操作降级为品牌绿实色"
+    },
+    "primaryDeep": {
+      "value": "var(--accent-3)",
+      "type": "gradient",
+      "role": "安全网：深色强调降级为深绿实色"
+    },
+    "avatar": {
+      "value": "var(--surface-tint)",
+      "type": "gradient",
+      "role": "安全网：头像底降级为品牌极淡底"
+    },
+    "cta": {
+      "value": "var(--accent)",
+      "type": "gradient",
+      "role": "安全网：CTA 降级为品牌绿实色"
+    },
+    "bubbleAi": {
+      "value": "var(--bubble-ai)",
+      "type": "gradient",
+      "role": "安全网：AI 气泡降级为纸白实色"
+    },
+    "glass": {
+      "value": "var(--surface)",
+      "type": "gradient",
+      "role": "安全网：毛玻璃全量下线，降级为实色表面"
+    },
+    "glow": {
+      "value": "radial-gradient(circle, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 65%)",
+      "type": "gradient",
+      "role": "全站唯一保留渐变：极淡氛围光晕（当前无引用）"
+    },
+    "ambient": {
+      "value": "none",
+      "type": "gradient",
+      "role": "安全网：环境光装饰层已删除"
+    }
+  },
+  "gradientDark": {},
+  "font": {
+    "body": { "value": "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif", "type": "fontFamily" },
+    "display": { "value": "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif", "type": "fontFamily" },
+    "mono": { "value": "'SF Mono', 'Roboto Mono', 'DejaVu Sans Mono', monospace", "type": "fontFamily" },
+    "size": {
+      "xs": { "value": "11px", "type": "dimension", "role": "Micro：时间戳 / 芯片" },
+      "label": { "value": "12px", "type": "dimension", "role": "Label：分区标签（配 --tracking-wider）" },
+      "sm": { "value": "13px", "type": "dimension", "role": "Callout：说明 / 描述 / 次级按钮" },
+      "base": { "value": "15px", "type": "dimension", "role": "Body：气泡正文 / 输入框" },
+      "md": { "value": "16px", "type": "dimension", "role": "Subtitle：列表项标题 / 联系人名" },
+      "lg": { "value": "18px", "type": "dimension", "role": "Title-4：顶栏标题 / 主推卡标题" },
+      "xl": { "value": "20px", "type": "dimension", "role": "Title-3：卡片标题 / 场景名" },
+      "2xl": { "value": "22px", "type": "dimension", "role": "Title-2：分区大标题" },
+      "3xl": { "value": "26px", "type": "dimension", "role": "Title-1：页面主标题" },
+      "4xl": { "value": "30px", "type": "dimension", "role": "Display：Welcome 主标题（全站唯一）" }
+    },
+    "weight": {
+      "read": { "value": "400", "type": "fontWeight" },
+      "emphasize": { "value": "500", "type": "fontWeight" },
+      "announce": { "value": "600", "type": "fontWeight" },
+      "strong": { "value": "700", "type": "fontWeight" }
+    }
+  },
+  "leading": {
+    "tight": { "value": "1.25", "type": "number" },
+    "snug": { "value": "1.35", "type": "number" },
+    "normal": { "value": "1.5", "type": "number" },
+    "relaxed": { "value": "1.65", "type": "number" },
+    "loose": { "value": "1.8", "type": "number" }
+  },
+  "tracking": {
+    "tighter": { "value": "-0.02em", "type": "dimension" },
+    "tight": { "value": "-0.01em", "type": "dimension" },
+    "normal": { "value": "0", "type": "dimension" },
+    "wide": { "value": "0.02em", "type": "dimension" },
+    "wider": { "value": "0.08em", "type": "dimension" }
+  },
+  "radius": {
+    "xs": { "value": "6px", "type": "dimension", "role": "内联 code / 微标签" },
+    "sm": { "value": "8px", "type": "dimension", "role": "图标按钮 / 小控件 / 气泡贴边角" },
+    "md": { "value": "12px", "type": "dimension", "role": "输入框 / note / toast / 图标井" },
+    "lg": { "value": "16px", "type": "dimension", "role": "卡片 / 联系人块" },
+    "bubble": { "value": "18px", "type": "dimension", "role": "聊天气泡（专用）" },
+    "xl": { "value": "20px", "type": "dimension", "role": "大卡片 / 主推横幅" },
+    "2xl": { "value": "22px", "type": "dimension", "role": "极少用（Mascot 容器）" },
+    "pill": { "value": "9999px", "type": "dimension", "role": "仅 CTA 按钮与芯片" }
+  },
+  "spacing": {
+    "1": { "value": "4px", "type": "dimension" },
+    "2": { "value": "8px", "type": "dimension" },
+    "3": { "value": "12px", "type": "dimension" },
+    "4": { "value": "16px", "type": "dimension" },
+    "5": { "value": "20px", "type": "dimension" },
+    "6": { "value": "24px", "type": "dimension" },
+    "7": { "value": "28px", "type": "dimension", "role": "分区间距" },
+    "8": { "value": "32px", "type": "dimension" },
+    "10": { "value": "40px", "type": "dimension" },
+    "12": { "value": "48px", "type": "dimension" },
+    "14": { "value": "56px", "type": "dimension", "role": "首屏大留白" },
+    "gutter": { "value": "20px", "type": "dimension", "role": "页面左右安全边距（全站唯一值）" },
+    "section": { "value": "28px", "type": "dimension", "role": "相邻内容分区的垂直间距" }
+  },
+  "shadow": {
+    "flat": { "value": "none", "type": "boxShadow" },
+    "ring": { "value": "0 0 0 1px var(--border)", "type": "boxShadow" },
+    "soft": { "value": "0 1px 2px rgba(27,31,28,0.05)", "type": "boxShadow" },
+    "raised": { "value": "0 1px 2px rgba(27,31,28,0.04), 0 2px 6px rgba(27,31,28,0.06)", "type": "boxShadow" },
+    "pop": { "value": "0 2px 4px rgba(27,31,28,0.04), 0 8px 20px rgba(27,31,28,0.08)", "type": "boxShadow" },
+    "float": { "value": "0 4px 8px rgba(27,31,28,0.05), 0 16px 32px rgba(27,31,28,0.10)", "type": "boxShadow" }
+  },
+  "shadowDark": {
+    "flat": { "value": "none", "type": "boxShadow" },
+    "ring": { "value": "0 0 0 1px var(--border)", "type": "boxShadow" },
+    "soft": { "value": "0 1px 2px rgba(0,0,0,0.30)", "type": "boxShadow" },
+    "raised": { "value": "0 1px 3px rgba(0,0,0,0.34)", "type": "boxShadow" },
+    "pop": { "value": "0 4px 14px rgba(0,0,0,0.40)", "type": "boxShadow" },
+    "float": { "value": "0 10px 28px rgba(0,0,0,0.48)", "type": "boxShadow" }
+  },
+  "motion": {
+    "instant": { "value": "100ms", "type": "duration", "role": "按压 scale(0.97)" },
+    "fast": { "value": "150ms", "type": "duration" },
+    "base": { "value": "220ms", "type": "duration" },
+    "slow": { "value": "300ms", "type": "duration" },
+    "ease": { "value": "cubic-bezier(0.2, 0, 0, 1)", "type": "cubicBezier" },
+    "easeOut": { "value": "cubic-bezier(0.16, 1, 0.3, 1)", "type": "cubicBezier" }
+  },
+  "icon": {
+    "library": { "value": "lucide", "type": "string" },
+    "strokeWidth": { "value": "1.75", "type": "number" },
+    "sizes": { "inline": { "value": "16px", "type": "dimension" }, "button": { "value": "20px", "type": "dimension" }, "standalone": { "value": "24px", "type": "dimension" } },
+    "color": { "value": "currentColor", "type": "color" },
+    "emojiAllowed": { "value": "false", "type": "boolean", "note": "functional icons only; emoji forbidden in chrome" }
+  }
+}

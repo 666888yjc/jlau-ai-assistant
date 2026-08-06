@@ -1,0 +1,66 @@
+<svg viewBox="0 0 375 812" width="375" height="812" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif">
+  <!-- background -->
+  <rect x="0" y="0" width="375" height="812" fill="#F5F6F7"/>
+
+  <!-- ============ BRAND AVATAR ============ -->
+  <circle cx="187.5" cy="180" r="46" fill="#E9F8F3" stroke="#14BF96" stroke-width="3"/>
+  <text x="187.5" y="193" text-anchor="middle" font-size="38" font-weight="600" fill="#1A6B3C">吉</text>
+  <!-- Sparkles 16 (Lucide) near avatar -->
+  <g transform="translate(243,140)" stroke="#14BF96" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 -7 C1 -2 2 -1 7 0 C2 1 1 2 0 7 C-1 2 -2 1 -7 0 C-2 -1 -1 -2 0 -7 Z"/>
+    <path d="M9 4 C9.5 6 10 6.5 12 7 C10 7.5 9.5 8 9 10 C8.5 8 8 7.5 6 7 C8 6.5 8.5 6 9 4 Z"/>
+  </g>
+
+  <!-- ============ TITLE + SUBTITLE ============ -->
+  <text x="187.5" y="280" text-anchor="middle" font-size="20" font-weight="600" fill="#1A1A1A">你好，我是吉小农</text>
+  <text x="187.5" y="314" text-anchor="middle" font-size="15" fill="#4A4F57">吉林农业大学一站式校园 AI 助手。</text>
+  <text x="187.5" y="338" text-anchor="middle" font-size="15" fill="#4A4F57">报到、选课、校园生活，随时问我。</text>
+
+  <!-- ============ FEATURE LIST ============ -->
+  <!-- row 1: 报到答疑 -->
+  <rect x="24" y="392" width="327" height="64" rx="16" fill="#FFFFFF" stroke="#E6E8EB" stroke-width="1"/>
+  <rect x="40" y="408" width="40" height="40" rx="12" fill="#E9F8F3"/>
+  <!-- MapPin 24 -->
+  <g transform="translate(60,428)" stroke="#14BF96" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 -12 C7 -12 12 -7 12 0 C12 8 0 14 0 14 C0 14 -12 8 -12 0 C-12 -7 -7 -12 0 -12 Z"/>
+    <circle cx="0" cy="0" r="4"/>
+  </g>
+  <text x="96" y="416" font-size="15" font-weight="600" fill="#1A1A1A">报到答疑</text>
+  <text x="96" y="438" font-size="13" fill="#8A9099">材料、流程、交通，一站说清</text>
+
+  <!-- row 2: 办事指南 -->
+  <rect x="24" y="468" width="327" height="64" rx="16" fill="#FFFFFF" stroke="#E6E8EB" stroke-width="1"/>
+  <rect x="40" y="484" width="40" height="40" rx="12" fill="#E9F8F3"/>
+  <!-- BookOpen 24 -->
+  <g transform="translate(60,504)" stroke="#14BF96" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-12 -2 C-8 -6 -1 -6 0 -2 C1 -6 8 -6 12 -2 V12 C8 8 1 8 0 12 C-1 8 -8 8 -12 12 Z"/>
+    <path d="M0 -2 V12"/>
+  </g>
+  <text x="96" y="492" font-size="15" font-weight="600" fill="#1A1A1A">办事指南</text>
+  <text x="96" y="514" font-size="13" fill="#8A9099">带你看官方来源与更新日期</text>
+
+  <!-- row 3: 随时对话 -->
+  <rect x="24" y="544" width="327" height="64" rx="16" fill="#FFFFFF" stroke="#E6E8EB" stroke-width="1"/>
+  <rect x="40" y="560" width="40" height="40" rx="12" fill="#E9F8F3"/>
+  <!-- MessageCircle 24 -->
+  <g transform="translate(60,580)" stroke="#14BF96" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 -12 C-8 -12 -13 -6 -13 0 C-13 5 -9 9 -4 10 L-2 14 L2 10 C8 9 13 5 13 0 C13 -6 8 -12 0 -12 Z"/>
+    <circle cx="-4" cy="0" r="1.2" fill="#14BF96" stroke="none"/>
+    <circle cx="0" cy="0" r="1.2" fill="#14BF96" stroke="none"/>
+    <circle cx="4" cy="0" r="1.2" fill="#14BF96" stroke="none"/>
+  </g>
+  <text x="96" y="568" font-size="15" font-weight="600" fill="#1A1A1A">随时对话</text>
+  <text x="96" y="590" font-size="13" fill="#8A9099">像问学长学姐一样自然</text>
+
+  <!-- ============ ENTER BUTTON ============ -->
+  <rect x="24" y="648" width="327" height="52" rx="12" fill="#07C160"/>
+  <!-- ArrowRight 20 -->
+  <g transform="translate(150,674)" stroke="#FFFFFF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-6 -6 L6 0 L-6 6"/>
+    <path d="M-6 0 H8"/>
+  </g>
+  <text x="206" y="680" text-anchor="middle" font-size="17" font-weight="600" fill="#FFFFFF">开始对话</text>
+
+  <!-- ============ FOOTER ============ -->
+  <text x="187.5" y="744" text-anchor="middle" font-size="11" fill="#B4B9C0">AI 生成内容仅供参考，重要事项以官方通知为准</text>
+</svg>

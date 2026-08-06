@@ -1,0 +1,10 @@
+{
+  "name": "jlau-ai-assistant-cloud-function-api",
+  "version": "1.0.0",
+  "description": "吉小农薄壳后端 CloudBase HTTP 云函数入口（包装 server/dist 的 Express 应用）",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

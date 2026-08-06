@@ -1,0 +1,194 @@
+%% 吉小农 · P2 功能模块扩展 · 数据结构与接口类图
+%% 源文档：docs/p2-modules-arch.md §4
+classDiagram
+    direction LR
+
+    %% ============ types/local.ts（零 I/O） ============
+    class LostFoundItem {
+        +string id
+        +LostFoundKind kind
+        +string title
+        +string place
+        +string date
+        +string contact
+        +string note
+        +LostFoundStatus status
+        +number createdAt
+        +number updatedAt
+    }
+    class LostFoundData {
+        +1 version
+        +LostFoundItem[] items
+    }
+    class GpaCourse {
+        +string id
+        +string name
+        +number credit
+        +number score
+        +string term
+        +number createdAt
+    }
+    class GpaData {
+        +1 version
+        +GpaCourse[] courses
+    }
+    class LocalGuards {
+        <<module types/local.ts>>
+        +isLostFoundKind(unknown) bool
+        +isLostFoundStatus(unknown) bool
+        +isLostFoundItem(unknown) bool
+        +isLostFoundData(unknown) bool
+        +isGpaCourse(unknown) bool
+        +isGpaData(unknown) bool
+        +LOSTFOUND_MAX: 50
+        +GPA_COURSE_MAX: 60
+        +EMPTY_LOSTFOUND
+        +EMPTY_GPA
+    }
+
+    %% ============ lib/storage.ts（唯一 localStorage 出口） ============
+    class StorageDescriptor {
+        +StorageDescriptorId id
+        +string key
+        +StorageKind kind
+        +string label
+        +string purpose
+        +bool managed
+        +summarize(string[]) string
+    }
+    class Storage {
+        <<module lib/storage.ts>>
+        +KEY_LOSTFOUND: 'jxn-lostfound'
+        +KEY_GPA: 'jxn-gpa'
+        +STORAGE_DESCRIPTORS: StorageDescriptor[7]
+        +readJson~T~(key, guard, fallback) T
+        +writeJson(key, value) bool
+        +removeKey(key) void
+        +inventory() InventoryEntry[]
+        +exportAll() ExportBundle
+        +clearById(id) void
+        +clearAll() void
+        +listUnknownKeys() string[]
+    }
+
+    %% ============ 领域层 ============
+    class LibLostFound {
+        <<module lib/lostfound.ts>>
+        +readLostFound() LostFoundData
+        +addLostFound(LostFoundInput) LostFoundAddResult
+        +toggleLostFoundStatus(id) bool
+        +removeLostFound(id) void
+        +clearLostFound() void
+        +todayIso() string
+    }
+    class LibGpa {
+        <<module lib/gpa.ts>>
+        +readGpa() GpaData
+        +addGpaCourse(GpaCourseInput) GpaAddResult
+        +removeGpaCourse(id) void
+        +clearGpa() void
+        +parseCredit(string) number|null
+        +parseScore(string) number|null
+    }
+
+    %% ============ data 层（无状态、可替换、可单测） ============
+    class PhoneData {
+        <<module modules/phone/data.ts>>
+        +PHONE_CATEGORIES: PhoneCategory[5]
+        +PHONE_ITEMS: PhoneItem[13]
+        +PHONE_DISCLAIMER
+        +PHONE_ASK_QUESTION
+    }
+    class PhoneItem {
+        +string id
+        +string name
+        +string phone
+        +PhoneCategory category
+        +string purpose
+        +string source
+    }
+    class LostFoundDisplay {
+        <<module modules/lostfound/data.ts>>
+        +LOSTFOUND_KIND_OPTIONS
+        +kindLabel(LostFoundKind) string
+        +formatLostFoundDate(string) string
+        +LOSTFOUND_PRIVACY_NOTE
+    }
+    class GpaAlgo {
+        <<module modules/gpa/data.ts>>
+        +GPA_SCALE: GpaScaleBand[10]
+        +GPA_SCHEME_NAME
+        +GPA_DISCLAIMER
+        +scoreToPoint(number) number
+        +calcGpa(GpaCourse[]) GpaResult
+    }
+    class GpaScaleBand {
+        +number min
+        +number max
+        +number point
+        +string label
+    }
+    class GpaResult {
+        +number courseCount
+        +number totalCredit
+        +number|null weightedScore
+        +number|null weightedGpa
+    }
+
+    %% ============ 注册与路由 ============
+    class ModuleDef {
+        +string id
+        +string name
+        +string desc
+        +SceneId icon
+        +string path
+        +bool defaultEnabled
+        +number order
+    }
+    class Registry {
+        <<module modules/registry.ts>>
+        +MODULE_REGISTRY: ModuleDef[5]
+        +sortedModules() ModuleDef[]
+        +findModule(id) ModuleDef
+    }
+    class App {
+        <<App.tsx>>
+        +MODULE_PAGES: Record~string,ComponentType~
+    }
+    class SceneIconC {
+        <<components/SceneIcon.tsx>>
+        +SceneId: 9 values
+        +renderScene(SceneId)
+    }
+
+    %% ============ 页面 ============
+    class PhoneModulePage
+    class LostFoundModulePage
+    class GpaModulePage
+
+    LostFoundData "1" *-- "0..50" LostFoundItem
+    GpaData "1" *-- "0..60" GpaCourse
+    PhoneData "1" *-- "13" PhoneItem
+    GpaAlgo "1" *-- "10" GpaScaleBand
+    GpaAlgo ..> GpaResult : returns
+    GpaAlgo ..> GpaCourse : reads
+
+    Storage "1" *-- "7" StorageDescriptor
+    Storage ..> LocalGuards : uses guards in summarize
+    LibLostFound --> Storage : readJson/writeJson/removeKey
+    LibGpa --> Storage : readJson/writeJson/removeKey
+    LibLostFound ..> LostFoundData
+    LibGpa ..> GpaData
+
+    PhoneModulePage --> PhoneData
+    LostFoundModulePage --> LibLostFound
+    LostFoundModulePage --> LostFoundDisplay
+    GpaModulePage --> LibGpa
+    GpaModulePage --> GpaAlgo
+
+    Registry "1" *-- "5" ModuleDef
+    ModuleDef ..> SceneIconC : icon: SceneId
+    App --> Registry : MODULE_REGISTRY.map()
+    App --> PhoneModulePage
+    App --> LostFoundModulePage
+    App --> GpaModulePage

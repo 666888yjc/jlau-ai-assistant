@@ -1,0 +1,104 @@
+%% 吉小农 × MaiBot 能力迁移 · 主用户旅程时序图
+%% 覆盖：空态问候语 → 记住这条 → 模块中心开关 → 路由守卫 → 隐私中心导出/清除
+%% 分流程详图见 docs/maimai-capabilities-arch.md §6
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant CP as ChatPage
+    participant PF as lib/profile
+    participant ST as lib/storage
+    participant API as /api/v1/chat
+    participant R as App Router
+    participant MP as ModulesPage
+    participant ML as lib/modules
+    participant MG as ModuleGuard
+    participant PP as PrivacyPage
+    participant TH as lib/theme
+
+    rect rgb(232, 239, 233)
+    Note over U,API: ① 对话空态问候语（PRD-P0-02）
+    U->>CP: 进入 /chat?scenario=baodao
+    CP->>CP: loadConversation() 既有逻辑零改动
+    alt messages 为空
+        CP->>PF: readProfile() / readMemory()
+        PF->>ST: readJson(jxn-profile / jxn-memory)
+        ST-->>PF: 数据或 fallback（解析失败静默降级）
+        CP->>PF: buildGreeting(profile, memory)
+        alt 档案与记忆全空
+            PF-->>CP: DEFAULT_GREETING（与原 WELCOME_TEXT 逐字一致）
+        else 有数据
+            PF-->>CP: 昵称 + 专业 + 记忆回显
+        end
+        CP-->>U: 渲染空态问候气泡
+    end
+    U->>CP: 发送问题
+    CP->>API: streamChat 请求体与改动前逐字节一致
+    end
+
+    rect rgb(232, 239, 233)
+    Note over U,ST: ② 记住这条（PRD-P0-03）
+    U->>CP: 点自己气泡下的「记住这条」
+    CP->>PF: addMemory(text, 'chat')
+    PF->>ST: readJson(jxn-memory)
+    alt 已满 50 条
+        PF-->>CP: 'full' → Toast 提示，不写入
+    else 文本重复
+        PF-->>CP: 'duplicate' → Toast 提示，不写入
+    else 正常
+        PF->>ST: writeJson(jxn-memory, items + 1)
+        PF-->>CP: 'ok' → 按钮变「已记住」
+    end
+    end
+
+    rect rgb(232, 239, 233)
+    Note over U,MG: ③ 模块中心 + 开关持久化 + 路由守卫（PRD-P0-04）
+    U->>CP: 点顶栏模块中心图标
+    CP->>R: navigate('/modules')
+    R->>MP: mount
+    MP->>ML: readModules()
+    ML->>ST: readJson(jxn-modules)
+    ML-->>MP: enabled 映射（缺 key 回落 registry.defaultEnabled）
+    MP-->>U: 渲染档案摘要卡 + MODULE_REGISTRY.map() 模块行 + 隐私入口
+    U->>MP: 关闭「校历作息」
+    MP->>ML: setModuleEnabled('calendar', false)
+    ML->>ST: writeJson(jxn-modules)
+    MP-->>U: 该行置灰不可进
+    U->>R: 直接访问 /modules/calendar
+    R->>MG: ModuleGuard(id='calendar')
+    MG->>ML: isModuleEnabled('calendar')
+    ML-->>MG: false
+    MG->>R: Navigate to /modules replace
+    R-->>U: 回到模块中心，返回键不死循环
+    end
+
+    rect rgb(245, 238, 224)
+    Note over U,TH: ④ 隐私中心 查看 / 导出 / 清除（PRD-P0-07）
+    U->>PP: 进入 /privacy
+    PP->>ST: inventory()
+    ST->>ST: 描述符匹配 + listUnknownKeys() 兜底扫描
+    ST-->>PP: InventoryEntry[]（含「其他数据」分组）
+    PP-->>U: 渲染清单
+    U->>PP: 导出全部数据
+    PP->>ST: exportAll()
+    ST-->>PP: ExportBundle
+    PP-->>U: Blob 下载 jixiaonong-data-YYYYMMDD.json（零网络）
+    U->>PP: 清除全部 → 就地二次确认
+    PP->>ST: clearAll()
+    ST->>ST: 基于运行时快照循环 removeItem（含 unknown 键 + jxn-theme）
+    PP->>TH: applyTheme(getSystemTheme()) 复位 html.dark
+    PP->>ST: inventory() 立即刷新
+    PP-->>U: 清单归零 + Toast
+    end
+
+    rect rgb(245, 238, 224)
+    Note over U,API: ⑤ 贴纸插入对话流（P1，PRD-P1-01）
+    U->>CP: 选中贴纸 cheer
+    CP->>CP: push 一条 kind='sticker' 的 user 消息
+    CP--xAPI: 不触发任何请求
+    CP->>ST: 复用既有 250ms 防抖落盘（零新增持久化代码）
+    U->>CP: 刷新页面
+    CP->>CP: normalizeRestoredMessage 透传并校验 sticker 枚举
+    CP-->>U: 贴纸正确还原（非法值降级为文本）
+    U->>CP: 后续发送文本
+    CP->>API: history 已过滤 kind==='sticker'，不污染 LLM 上下文
+    end

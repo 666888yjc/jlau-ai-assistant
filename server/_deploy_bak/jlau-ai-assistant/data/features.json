@@ -1,0 +1,38 @@
+[
+  {
+    "_id": "f1",
+    "scenario_id": "baodao",
+    "text": "报到要带什么材料",
+    "sort": 1
+  },
+  {
+    "_id": "f2",
+    "scenario_id": "baodao",
+    "text": "从长春站怎么去学校",
+    "sort": 2
+  },
+  {
+    "_id": "f3",
+    "scenario_id": "baodao",
+    "text": "宿舍怎么分配",
+    "sort": 3
+  },
+  {
+    "_id": "f4",
+    "scenario_id": "baodao",
+    "text": "学费怎么交",
+    "sort": 4
+  },
+  {
+    "_id": "f5",
+    "scenario_id": "baodao",
+    "text": "校园卡怎么激活",
+    "sort": 5
+  },
+  {
+    "_id": "f6",
+    "scenario_id": "baodao",
+    "text": "军训要准备什么",
+    "sort": 6
+  }
+]

@@ -1,0 +1,740 @@
+openapi: 3.0.3
+info:
+  title: 吉小农 (JLAU AI Assistant) API
+  version: 1.0.0
+  description: |
+    吉农 AI 助手「吉小农」MVP 薄壳代理 + 轻量数据 API。
+    核心对话经云函数代理转发 Coze 智能体，以 SSE (text/event-stream) 流式返回；
+    其余为轻量 JSON 端点（反馈 / 转人工 / 场景注册表 / 猜你想问）。
+
+    本文件是前后端联调的唯一契约（依据 SPEC.md §5）。所有端点路径必须带 /api/v1 版本前缀。
+
+    两种 content-type 约定：
+      - JSON 端点（feedback / human-handoff / scenarios / features）：
+          响应头 Content-Type: application/json；统一结构 { code, data, message }。
+      - 流式端点（chat）：
+          响应头 Content-Type: text/event-stream；事件格式见 #/paths/~1api~1v1~1chat 描述与
+          #/components/schemas 下的 *Event 定义。
+
+    错误码（code 字段，0 表示成功）：
+      0     成功
+      4001  请求参数非法或缺失（invalid_request）
+      4002  场景不存在（scenario_not_found）
+      4003  反馈类型非法（invalid_feedback_type）
+      4290  触发速率限制（rate_limited）
+      5001  Coze 上游不可用（upstream_unavailable）
+      5002  服务端内部错误（internal_error）
+  contact:
+    name: 吉农 AI 助手项目组
+    url: https://github.com/jlau-ai-assistant
+
+servers:
+  - url: https://{env}.example.com
+    description: 云函数环境
+    variables:
+      env:
+        default: api
+        enum:
+          - dev
+          - api
+
+tags:
+  - name: chat
+    description: 对话流转发（SSE 流式）
+  - name: feedback
+    description: 答案反馈（有帮助 / 报错）
+  - name: handoff
+    description: 兜底转人工登记
+  - name: registry
+    description: 场景注册表与猜你想问（公开只读）
+
+paths:
+  /api/v1/chat:
+    post:
+      summary: 转发 Coze 对话（SSE 流式返回）
+      description: |
+        薄壳将用户消息经云函数代理转发至 Coze `POST /v3/chat`（stream:true），
+        前端不持有 Coze token。响应为 SSE 流（text/event-stream），按事件顺序推送。
+
+        SSE 事件格式（每条事件以 `event:` 行 + `data:` 行 + 空行分隔）：
+          event: token      data: {"type":"token","content":"录取通知"}          # 增量文本 token（可多次）
+          event: sources    data: {"type":"sources","items":[{...}]}             # RAG 来源标注（0 或 1 次）
+          event: fallback   data: {"type":"fallback","guesses":[...],"contact":{...}} # 低置信/无答案引导
+          event: done       data: {"type":"done","conversation_id":"...","message_id":"...","finish_reason":"stop"} # 流结束标志
+          event: error      data: {"type":"error","code":5001,"message":"..."}   # 流中错误（出现即中止）
+
+        结束标志：推送 `event: done` 后由服务端关闭连接；客户端以收到 `done` 事件为完成信号，
+        不依赖固定超时。错误处理：若流建立前即失败，返回对应 HTTP 状态码 + JSON 错误体（见 400/429/500）。
+      operationId: postChat
+      tags:
+        - chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            examples:
+              success:
+                summary: 报到要带什么（成功流）
+                value:
+                  scenario_id: baodao
+                  message: 报到要带什么
+                  history: []
+                  conversation_id: test-001
+              fallback:
+                summary: 知识库无答案（兜底流）
+                value:
+                  scenario_id: baodao
+                  message: 吉农保研率多少
+                  history: []
+                  conversation_id: test-002
+      responses:
+        '200':
+          description: SSE 流式响应（text/event-stream）
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/SSEStream'
+              examples:
+                success-stream:
+                  summary: 成功流事件序列
+                  value: |
+                    event: token
+                    data: {"type":"token","content":"新生报到需携带以下材料："}
+
+                    event: token
+                    data: {"type":"token","content":"1. 录取通知书；2. 身份证；3. 档案；4. 户口迁移证（如需）；5. 10 张小 2 寸照。"}
+
+                    event: sources
+                    data: {"type":"sources","items":[{"title":"2026 新生入学须知","url":"https://www.jlau.edu.cn/notice/2026","updated_at":"2026-07-20"}]}
+
+                    event: done
+                    data: {"type":"done","conversation_id":"test-001","message_id":"m-8f3a","finish_reason":"stop"}
+                fallback-stream:
+                  summary: 兜底流事件序列
+                  value: |
+                    event: fallback
+                    data: {"type":"fallback","guesses":["报到流程是什么","宿舍怎么分配","学费怎么交"],"contact":{"name":"学工处","phone":"0431-84532980"}}
+
+                    event: done
+                    data: {"type":"done","conversation_id":"test-002","message_id":"m-2b7c","finish_reason":"no_answer"}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/v1/feedback:
+    post:
+      summary: 答案反馈（helpful / reported）
+      description: |
+        记录用户对单条回答的反馈事件，写入 feedback 集合，驱动知识库迭代 / 未知问题队列。
+        响应为 JSON（Content-Type: application/json），统一结构 { code, data, message }。
+      operationId: postFeedback
+      tags:
+        - feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+            examples:
+              helpful:
+                summary: 标记有帮助
+                value:
+                  message_id: m-8f3a
+                  type: helpful
+              reported:
+                summary: 标记报错（附备注）
+                value:
+                  message_id: m-8f3a
+                  type: reported
+                  note: 来源链接已失效
+      responses:
+        '200':
+          description: 反馈已记录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseFeedback'
+              examples:
+                ok:
+                  value:
+                    code: 0
+                    data:
+                      id: fb-5c1d
+                      message_id: m-8f3a
+                      type: helpful
+                    message: ok
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/v1/human-handoff:
+    post:
+      summary: 兜底转人工登记
+      description: |
+        低置信 / 无答案 / 用户点「答错了」时登记转人工工单，写入 human_handoff 集合，进入兜底队列。
+        contact 为可选字段，仅用于学工/辅导员回访；按 SPEC §10 合规约束，建议填微信昵称等粗粒度标识，
+        不采集手机号、身份证、家庭地址等隐私字段。响应为 JSON，统一结构 { code, data, message }。
+      operationId: postHumanHandoff
+      tags:
+        - handoff
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HumanHandoffRequest'
+            examples:
+              with-contact:
+                summary: 登记转人工（附联系标识）
+                value:
+                  scenario_id: baodao
+                  question: 吉农保研率多少
+                  contact: 微信：xiaoming2026
+      responses:
+        '200':
+          description: 转人工工单已登记
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseHandoff'
+              examples:
+                ok:
+                  value:
+                    code: 0
+                    data:
+                      id: hh-9a2e
+                      scenario_id: baodao
+                      status: pending
+                    message: ok
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/v1/scenarios:
+    get:
+      summary: 分类入口列表（含 Lucide 图标名）
+      description: |
+        返回场景注册表（驱动分类入口与聊天主页标题）。MVP 仅 1 条（baodao 新生报到），
+        其余进 Backlog。响应为 JSON，统一结构 { code, data:[...], message }。
+        `lucide_icon` 为图标映射单一事实源（源自 scenarios 集合的 lucide_icon_name 字段），
+        `icon` 为兼容别名，值与 lucide_icon 一致。
+      operationId: getScenarios
+      tags:
+        - registry
+      responses:
+        '200':
+          description: 场景列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseScenarios'
+              examples:
+                mvp:
+                  summary: MVP 仅 baodao
+                  value:
+                    code: 0
+                    data:
+                      - id: baodao
+                        name: 新生报到
+                        icon: MapPin
+                        lucide_icon: MapPin
+                    message: ok
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/v1/features:
+    get:
+      summary: 快捷问题 / 猜你想问卡片
+      description: |
+        返回某场景的「猜你想问」卡片（features 集合）。可按 scenario_id 查询参数过滤。
+        响应为 JSON，统一结构 { code, data:[...], message }。MVP 写入报到域 4~6 条。
+      operationId: getFeatures
+      tags:
+        - registry
+      parameters:
+        - name: scenario_id
+          in: query
+          description: 场景过滤；缺省返回全部场景的快捷卡
+          required: false
+          schema:
+            type: string
+            example: baodao
+      responses:
+        '200':
+          description: 猜你想问卡片列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseFeatures'
+              examples:
+                baodao:
+                  summary: 报到域猜你想问
+                  value:
+                    code: 0
+                    data:
+                      - id: f1
+                        text: 报到要带什么材料
+                        scenario_id: baodao
+                      - id: f2
+                        text: 从长春站怎么去学校
+                        scenario_id: baodao
+                      - id: f3
+                        text: 宿舍怎么分配
+                        scenario_id: baodao
+                      - id: f4
+                        text: 学费怎么交
+                        scenario_id: baodao
+                      - id: f5
+                        text: 校园卡怎么激活
+                        scenario_id: baodao
+                      - id: f6
+                        text: 军训要准备什么
+                        scenario_id: baodao
+                    message: ok
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    # ---------- 请求体 ----------
+    ChatMessage:
+      type: object
+      description: 历史消息单元（多轮上下文）
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum:
+            - user
+            - assistant
+          description: 发言角色
+        content:
+          type: string
+          description: 消息文本
+          example: 从长春站怎么去学校
+
+    ChatRequest:
+      type: object
+      required:
+        - scenario_id
+        - message
+        - conversation_id
+      properties:
+        scenario_id:
+          type: string
+          description: 场景标识（须为 scenarios 注册表中的 id）
+          example: baodao
+        message:
+          type: string
+          description: 当前用户提问
+          minLength: 1
+          maxLength: 2000
+          example: 报到要带什么
+        history:
+          type: array
+          description: 多轮上下文（不含当前消息）；数组为空表示首轮
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          default: []
+        conversation_id:
+          type: string
+          description: 会话标识，用于 Coze conversation 续接与消息关联
+          example: test-001
+
+    FeedbackRequest:
+      type: object
+      required:
+        - message_id
+        - type
+      properties:
+        message_id:
+          type: string
+          description: 被反馈的回答 message_id（来自 chat 流 done 事件）
+          example: m-8f3a
+        type:
+          type: string
+          enum:
+            - helpful
+            - reported
+          description: helpful=有帮助；reported=报错
+          example: helpful
+        note:
+          type: string
+          nullable: true
+          description: 报错补充说明（可选）
+          maxLength: 500
+          example: 来源链接已失效
+
+    HumanHandoffRequest:
+      type: object
+      required:
+        - scenario_id
+        - question
+      properties:
+        scenario_id:
+          type: string
+          description: 触发转人工的场景标识
+          example: baodao
+        question:
+          type: string
+          description: 用户原始问题（脱敏摘要，不存完整原始输入全文）
+          minLength: 1
+          maxLength: 2000
+          example: 吉农保研率多少
+        contact:
+          type: string
+          nullable: true
+          description: 可选回访标识（建议微信昵称等粗粒度，不采集手机号/身份证/家庭地址）
+          maxLength: 100
+          example: 微信：xiaoming2026
+
+    # ---------- SSE 事件 ----------
+    SSEStream:
+      type: string
+      description: |
+        SSE 文本流。每条事件形如：
+          event: <EventType>\n
+          data: <JSON>\n
+          \n
+        事件类型与其 data 载荷见下方 *Event 定义。结束标志为 event: done 后连接关闭。
+      format: binary
+
+    TokenEvent:
+      type: object
+      description: 增量文本 token 事件（data 载荷）
+      required:
+        - type
+        - content
+      properties:
+        type:
+          type: string
+          enum: [token]
+        content:
+          type: string
+          description: 本次推送的文本片段
+          example: 新生报到需携带以下材料：
+
+    SourcesEvent:
+      type: object
+      description: RAG 来源标注事件（data 载荷）
+      required:
+        - type
+        - items
+      properties:
+        type:
+          type: string
+          enum: [sources]
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+                example: 2026 新生入学须知
+              url:
+                type: string
+                format: uri
+                example: https://www.jlau.edu.cn/notice/2026
+              updated_at:
+                type: string
+                format: date
+                example: '2026-07-20'
+
+    FallbackEvent:
+      type: object
+      description: 低置信 / 无答案兜底引导事件（data 载荷）
+      required:
+        - type
+        - guesses
+        - contact
+      properties:
+        type:
+          type: string
+          enum: [fallback]
+        guesses:
+          type: array
+          description: 猜你想问（引导用户继续）
+          items:
+            type: string
+          example:
+            - 报到流程是什么
+            - 宿舍怎么分配
+            - 学费怎么交
+        contact:
+          type: object
+          description: 转人工联系入口
+          properties:
+            name:
+              type: string
+              example: 学工处
+            phone:
+              type: string
+              example: '0431-84532980'
+
+    DoneEvent:
+      type: object
+      description: 流结束标志事件（data 载荷），出现后连接关闭
+      required:
+        - type
+        - conversation_id
+        - message_id
+        - finish_reason
+      properties:
+        type:
+          type: string
+          enum: [done]
+        conversation_id:
+          type: string
+          example: test-001
+        message_id:
+          type: string
+          description: 本回答唯一标识，供 feedback 引用
+          example: m-8f3a
+        finish_reason:
+          type: string
+          enum:
+            - stop
+            - no_answer
+          description: stop=正常结束；no_answer=无答案走兜底
+          example: stop
+
+    SSEErrorEvent:
+      type: object
+      description: 流中错误事件（data 载荷），出现即中止后续推送
+      required:
+        - type
+        - code
+        - message
+      properties:
+        type:
+          type: string
+          enum: [error]
+        code:
+          type: integer
+          example: 5001
+        message:
+          type: string
+          example: 对话服务暂不可用
+
+    # ---------- 公共响应结构 ----------
+    ScenarioItem:
+      type: object
+      required:
+        - id
+        - name
+        - icon
+        - lucide_icon
+      properties:
+        id:
+          type: string
+          example: baodao
+        name:
+          type: string
+          example: 新生报到
+        icon:
+          type: string
+          description: 兼容别名，值与 lucide_icon 一致
+          example: MapPin
+        lucide_icon:
+          type: string
+          description: Lucide 图标名（图标映射单一事实源，源自 scenarios.lucide_icon_name）
+          example: MapPin
+
+    FeatureItem:
+      type: object
+      required:
+        - id
+        - text
+        - scenario_id
+      properties:
+        id:
+          type: string
+          example: f1
+        text:
+          type: string
+          example: 报到要带什么材料
+        scenario_id:
+          type: string
+          example: baodao
+
+    ApiResponseFeedback:
+      type: object
+      description: 统一响应结构（feedback）
+      required:
+        - code
+        - data
+        - message
+      properties:
+        code:
+          type: integer
+          example: 0
+        data:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              example: fb-5c1d
+            message_id:
+              type: string
+              example: m-8f3a
+            type:
+              type: string
+              enum:
+                - helpful
+                - reported
+        message:
+          type: string
+          example: ok
+
+    ApiResponseHandoff:
+      type: object
+      description: 统一响应结构（human-handoff）
+      required:
+        - code
+        - data
+        - message
+      properties:
+        code:
+          type: integer
+          example: 0
+        data:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              example: hh-9a2e
+            scenario_id:
+              type: string
+              example: baodao
+            status:
+              type: string
+              enum:
+                - pending
+                - contacted
+                - resolved
+        message:
+          type: string
+          example: ok
+
+    ApiResponseScenarios:
+      type: object
+      description: 统一响应结构（scenarios）
+      required:
+        - code
+        - data
+        - message
+      properties:
+        code:
+          type: integer
+          example: 0
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScenarioItem'
+        message:
+          type: string
+          example: ok
+
+    ApiResponseFeatures:
+      type: object
+      description: 统一响应结构（features）
+      required:
+        - code
+        - data
+        - message
+      properties:
+        code:
+          type: integer
+          example: 0
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeatureItem'
+        message:
+          type: string
+          example: ok
+
+  responses:
+    BadRequest:
+      description: 请求参数非法或缺失（code=4001/4002/4003）
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - code
+              - data
+              - message
+            properties:
+              code:
+                type: integer
+                enum:
+                  - 4001
+                  - 4002
+                  - 4003
+              data:
+                type: object
+                nullable: true
+              message:
+                type: string
+                example: 缺少必填字段 scenario_id
+    TooManyRequests:
+      description: 触发速率限制（code=4290）
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - code
+              - data
+              - message
+            properties:
+              code:
+                type: integer
+                enum:
+                  - 4290
+              data:
+                type: object
+                nullable: true
+              message:
+                type: string
+                example: 请求过于频繁，请稍后再试
+    ServerError:
+      description: 服务端 / 上游错误（code=5001/5002）
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - code
+              - data
+              - message
+            properties:
+              code:
+                type: integer
+                enum:
+                  - 5001
+                  - 5002
+              data:
+                type: object
+                nullable: true
+              message:
+                type: string
+                example: 对话服务暂不可用

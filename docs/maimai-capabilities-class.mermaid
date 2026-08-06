@@ -1,0 +1,206 @@
+classDiagram
+    direction LR
+
+    class StorageDescriptor {
+        +string id
+        +string key
+        +string kind
+        +string label
+        +string purpose
+        +boolean managed
+        +summarize(raws) string
+    }
+
+    class storage {
+        <<module>>
+        +STORAGE_DESCRIPTORS
+        +readJson(key, guard, fallback) T
+        +writeJson(key, value) boolean
+        +removeKey(key) void
+        +listJxnKeys() string[]
+        +listUnknownKeys() string[]
+        +inventory() InventoryEntry[]
+        +exportAll() ExportBundle
+        +exportFileName(d) string
+        +clearById(id) void
+        +clearAll() void
+    }
+
+    class InventoryEntry {
+        +string id
+        +string label
+        +string purpose
+        +string summary
+        +string[] keys
+        +boolean empty
+    }
+
+    class ExportBundle {
+        +string app
+        +number version
+        +string exportedAt
+        +string note
+        +ExportItem[] items
+    }
+
+    class ProfileData {
+        +number version
+        +string nickname
+        +string major
+        +string grade
+        +number updatedAt
+    }
+
+    class MemoryItem {
+        +string id
+        +string text
+        +string source
+        +number createdAt
+    }
+
+    class MemoryData {
+        +number version
+        +MemoryItem[] items
+    }
+
+    class ModulesData {
+        +number version
+        +Record enabled
+    }
+
+    class profile {
+        <<module>>
+        +DEFAULT_GREETING
+        +readProfile() ProfileData
+        +writeProfile(p) boolean
+        +readMemory() MemoryData
+        +addMemory(text, source) MemoryAddResult
+        +addMemoryBatch(texts, source) BatchResult
+        +removeMemory(id) void
+        +buildGreeting(profile, memory, seed) string
+    }
+
+    class modulesLib {
+        <<module>>
+        +readModules() ModulesData
+        +isModuleEnabled(id) boolean
+        +setModuleEnabled(id, on) boolean
+        +enabledCount() number
+    }
+
+    class ModuleDef {
+        +string id
+        +string name
+        +string desc
+        +string icon
+        +string path
+        +boolean defaultEnabled
+        +number order
+    }
+
+    class registry {
+        <<module>>
+        +MODULE_REGISTRY
+        +findModule(id) ModuleDef
+        +findModuleByPath(path) ModuleDef
+    }
+
+    class Milestone {
+        +string id
+        +string date
+        +string name
+        +string note
+    }
+
+    class TimeSlot {
+        +string id
+        +string period
+        +string label
+        +string start
+        +string end
+    }
+
+    class calendarData {
+        <<module>>
+        +TIME_TABLE
+        +MILESTONES
+        +CALENDAR_DATA_VERSION
+        +CALENDAR_DISCLAIMER
+        +daysUntil(dateStr, today) number
+        +nextMilestone(list, today) Milestone
+    }
+
+    class FoodItem {
+        +string id
+        +string name
+        +string category
+        +string price
+        +string distance
+        +string tip
+        +string askQuestion
+    }
+
+    class foodData {
+        <<module>>
+        +FOOD_ITEMS
+        +FOOD_CATEGORIES
+        +FOOD_DISCLAIMER
+    }
+
+    class UIMessage {
+        +string id
+        +string role
+        +string content
+        +string status
+        +string kind
+        +string sticker
+    }
+
+    class ModuleGuard {
+        <<component>>
+        +render(id, children)
+    }
+
+    class ModulesPage {
+        <<page>>
+    }
+    class ProfilePage {
+        <<page>>
+    }
+    class PrivacyPage {
+        <<page>>
+    }
+    class CalendarModulePage {
+        <<page>>
+    }
+    class FoodModulePage {
+        <<page>>
+    }
+    class ChatPage {
+        <<page>>
+    }
+
+    storage --> StorageDescriptor : 持有注册表
+    storage --> InventoryEntry : 产出
+    storage --> ExportBundle : 产出
+    profile --> storage : 唯一读写通道
+    profile --> ProfileData
+    profile --> MemoryData
+    MemoryData --> MemoryItem : 1..n
+    modulesLib --> storage : 唯一读写通道
+    modulesLib --> ModulesData
+    modulesLib --> registry : 读 defaultEnabled
+    registry --> ModuleDef : 1..n
+    ModuleGuard --> modulesLib
+    ModulesPage --> registry
+    ModulesPage --> modulesLib
+    ModulesPage --> profile : 档案摘要
+    ProfilePage --> profile
+    PrivacyPage --> storage
+    CalendarModulePage --> calendarData
+    calendarData --> Milestone : 1..n
+    calendarData --> TimeSlot : 1..n
+    FoodModulePage --> foodData
+    foodData --> FoodItem : 1..n
+    ChatPage --> profile : buildGreeting / addMemory
+    ChatPage --> UIMessage : 1..n
