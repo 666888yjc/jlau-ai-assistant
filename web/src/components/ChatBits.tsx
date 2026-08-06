@@ -43,16 +43,24 @@ export function NameChip() {
 export function Bubble({
   role,
   status,
+  streaming,
   children,
 }: {
   role: 'user' | 'assistant';
   status?: 'error';
+  /**
+   * 流式进行中（T05 UX-5）：流式期间每 token 内容都在变化，此时若走 MarkdownText，
+   * 每个 token 都会触发一次全量 parse（parseBlocks + parseInline）——这是流式期间
+   * 主线程最大的单点消耗。门控：streaming 时纯文本输出，done 后一次性 Markdown 化。
+   */
+  streaming?: boolean;
   children: ReactNode;
 }) {
   const cls = role === 'user' ? 'bubble user' : status === 'error' ? 'bubble ai error' : 'bubble ai';
-  // 仅 AI 正常回复走 Markdown 渲染（消灭 **星号**）；user 输入 / error 气泡保持纯文本；
+  // 仅 AI 正常回复且非流式时走 Markdown 渲染（消灭 **星号**）；user 输入 / error 气泡 / 流式保持纯文本；
   // 非字符串 children（如 TypingIndicator 加载动画）原样渲染。
-  const renderMarkdown = role === 'assistant' && status !== 'error' && typeof children === 'string';
+  const renderMarkdown =
+    role === 'assistant' && status !== 'error' && !streaming && typeof children === 'string';
   return <div className={cls}>{renderMarkdown ? <MarkdownText text={children} /> : children}</div>;
 }
 

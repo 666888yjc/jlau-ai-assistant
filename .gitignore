@@ -13,3 +13,6 @@ coverage/
 # 体积门禁的临时构建输出（不进版本库）
 dist_t01_verify/
 dist_t04_verify/
+dist_t05_verify/
+# 构建替换时保留的旧产物备份（不进版本库）
+dist_stale_*/

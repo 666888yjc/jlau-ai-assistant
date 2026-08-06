@@ -67,12 +67,43 @@ export async function getScenarios(): Promise<ApiResponse<ScenarioItem[]>> {
   return (await res.json()) as ApiResponse<ScenarioItem[]>;
 }
 
+// ---------------------------------------------------------------------------
+// 猜你想问（API-5：重试 1 次 + 本地短缓存；UX-6：失败上抛由 UI 呈现占位+重试）
+// ---------------------------------------------------------------------------
+
+/** /features 本地缓存有效期：5 分钟（报到日反复进出场景页不重复请求）。 */
+const FEATURES_CACHE_TTL_MS = 5 * 60_000;
+const featuresCache = new Map<string, { data: FeatureItem[]; at: number }>();
+
 export async function getFeatures(
   scenarioId?: string,
 ): Promise<ApiResponse<FeatureItem[]>> {
+  const key = scenarioId || 'default';
+
+  const cached = featuresCache.get(key);
+  if (cached && Date.now() - cached.at < FEATURES_CACHE_TTL_MS) {
+    return { code: 0, data: cached.data, message: 'ok' };
+  }
+
   const qs = scenarioId ? `?scenario_id=${encodeURIComponent(scenarioId)}` : '';
-  const res = await fetch(BASE + '/features' + qs);
-  return (await res.json()) as ApiResponse<FeatureItem[]>;
+  let lastErr: unknown;
+  // API-5：失败重试 1 次（轻微退避）；仍失败则上抛，由 ChatPage 呈现「加载失败+重试」（UX-6）
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(BASE + '/features' + qs);
+      if (!res.ok) throw new Error(`features request failed: ${res.status}`);
+      const j = (await res.json()) as ApiResponse<FeatureItem[]>;
+      if (!Array.isArray(j.data)) throw new Error('features malformed payload');
+      featuresCache.set(key, { data: j.data, at: Date.now() });
+      return j;
+    } catch (e) {
+      lastErr = e;
+      if (attempt === 0) {
+        await new Promise((r) => window.setTimeout(r, 300));
+      }
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
 // ---------------------------------------------------------------------------

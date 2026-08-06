@@ -15,6 +15,8 @@ import { NewContentPill } from '../components/NewContentPill';
 import { getFeatures, postFeedback } from '../lib/api';
 import { addMemory, buildGreeting, isMemoryTextTruncated, readMemory, readProfile } from '../lib/profile';
 import { shouldRenderErrorCard } from '../lib/errors';
+import { trimStoredMessages } from '../lib/context';
+import { HISTORY_MAX_MESSAGES } from '../lib/config';
 import { track } from '../lib/analytics';
 import { useChatStream } from '../hooks/useChatStream';
 import { useVisualViewport } from '../hooks/useVisualViewport';
@@ -95,9 +97,12 @@ function loadConversation(scenarioId: string): StoredConversation | null {
 
 function writeConversation(scenarioId: string, snap: StoredConversation): void {
   try {
+    // UX-7 / Q10：落盘前按完整轮次裁剪到最近 HISTORY_MAX_MESSAGES 条（不切断 user/assistant 配对）。
+    // trimStoredMessages 未超限时返回原引用，零拷贝零开销。
+    const messages = trimStoredMessages(snap.messages, HISTORY_MAX_MESSAGES);
     window.localStorage.setItem(
       CONV_STORAGE_PREFIX + scenarioId,
-      JSON.stringify({ conversationId: snap.conversationId, messages: snap.messages }),
+      JSON.stringify({ conversationId: snap.conversationId, messages }),
     );
   } catch {
     /* 存储失败（隐私模式/配额）不影响对话 */
@@ -146,7 +151,12 @@ const MessageRow = memo(function MessageRow({
             <TypingIndicator />
           </Bubble>
         ) : (
-          <Bubble role={m.role} status={m.status === 'error' ? 'error' : undefined}>
+          <Bubble
+            role={m.role}
+            status={m.status === 'error' ? 'error' : undefined}
+            /* UX-5：流式期间纯文本（不逐 token 重 parse Markdown），done 后一次性 Markdown */
+            streaming={m.status === 'streaming'}
+          >
             {m.content}
           </Bubble>
         )}
@@ -220,16 +230,23 @@ export function ChatPage() {
   const navigate = useNavigate();
 
   // 初始化：优先从 localStorage 按场景维度恢复，否则空会话 + 新 conversationId。
-  // initialMessages 按场景 memo：?scenario= 变化时会重算，但真正生效靠 resetForScenario（ERR-6）。
-  const initialMessages = useMemo(() => loadConversation(scenarioId)?.messages ?? [], [scenarioId]);
+  // initial 保持原始读取（用于判断是否触发「配额满」提示），真正给 hook 的 initialMessages 先裁剪到 50 条。
+  const initial = useMemo(() => loadConversation(scenarioId), [scenarioId]);
+  const initialMessages = useMemo(() => trimStoredMessages(initial?.messages ?? [], HISTORY_MAX_MESSAGES), [initial]);
   const [convId, setConvId] = useState<string>(() => loadConversation(scenarioId)?.conversationId ?? `conv-${Date.now()}`);
   const [features, setFeatures] = useState<FeatureItem[]>([]);
+  const [featuresError, setFeaturesError] = useState(false);
   // 模块页「问吉小农」带来的 ?q= 只做预填，绝不自动发送——最后一下留给用户
   const [input, setInput] = useState<string>(() => params.get('q') ?? '');
   const [stickerOpen, setStickerOpen] = useState(false);
 
   const chat = useChatStream({ scenarioId, conversationId: convId, initialMessages });
   const { messages, updateMessages, isStreaming } = chat;
+
+  // PERF-2：消息列表拆分 —— 最后一条若仍在流式，单独作为尾条渲染；其余归入已完成列表。
+  const lastMsg = messages[messages.length - 1];
+  const streamingTail = lastMsg && lastMsg.status === 'streaming' ? lastMsg : null;
+  const completed = streamingTail ? messages.slice(0, -1) : messages;
 
   // 空态问候语：纯函数拼装，只进 JSX，绝不进 streamChat 的任何参数（PRD D5）
   const greeting = useMemo(() => buildGreeting(readProfile(), readMemory()), []);
@@ -302,10 +319,23 @@ export function ChatPage() {
 
   const scheduleSave = useCallback(() => {
     if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = window.setTimeout(() => {
+    const flush = () => {
       saveTimerRef.current = null;
       const snap = snapshotRef.current;
       writeConversation(snap.scenarioId, { conversationId: snap.conversationId, messages: snap.messages });
+    };
+    // PERF-5：250ms 防抖后把落盘让给浏览器空闲期（requestIdleCallback），
+    // 写 localStorage 完全移出渲染热路径；不支持 rIC 时直接落盘（等价既有行为）。
+    saveTimerRef.current = window.setTimeout(() => {
+      saveTimerRef.current = null;
+      const ric = (
+        window as { requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number }
+      ).requestIdleCallback;
+      if (typeof ric === 'function') {
+        ric(flush, { timeout: 2000 });
+      } else {
+        flush();
+      }
     }, CONV_SAVE_DEBOUNCE_MS);
   }, []);
 
@@ -336,7 +366,8 @@ export function ChatPage() {
     const loaded = loadConversation(scenarioId);
     const nextConv = loaded?.conversationId ?? `conv-${Date.now()}`;
     setConvId(nextConv);
-    chat.resetForScenario(scenarioId, nextConv, loaded?.messages ?? []);
+    // UX-7：切换场景同样按 50 条上限裁剪后再交给 hook
+    chat.resetForScenario(scenarioId, nextConv, trimStoredMessages(loaded?.messages ?? [], HISTORY_MAX_MESSAGES));
     setInput(params.get('q') ?? '');
     track({ ev: 'page_view', scenario: scenarioId });
   }, [scenarioId, params, chat.resetForScenario]);
@@ -347,21 +378,36 @@ export function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 猜你想问：加载失败不再纯静默（UX-6 完整占位在 T05，这里先留可观测日志）
+  // UX-7：历史超上限被裁剪时给一次可见提示（不打断对话）
+  const historyCapHintedRef = useRef(false);
   useEffect(() => {
+    if (historyCapHintedRef.current) return;
+    if (initial && initial.messages.length > HISTORY_MAX_MESSAGES) {
+      historyCapHintedRef.current = true;
+      showToast(`历史记录较多，已自动保留最近 ${HISTORY_MAX_MESSAGES} 条`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 猜你想问（UX-6）：失败不再静默 —— 置 featuresError，UI 呈现占位+重试按钮
+  const loadFeatures = useCallback((sid: string) => {
     let cancelled = false;
-    getFeatures(scenarioId)
+    getFeatures(sid)
       .then((r) => {
-        if (!cancelled) setFeatures(r.data);
+        if (cancelled) return;
+        setFeatures(r.data);
+        setFeaturesError(false);
       })
       .catch((e) => {
         console.warn('[features] 加载失败:', e instanceof Error ? e.message : String(e));
-        if (!cancelled) setFeatures([]);
+        if (!cancelled) setFeaturesError(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [scenarioId]);
+  }, []);
+
+  useEffect(() => loadFeatures(scenarioId), [scenarioId, loadFeatures]);
 
   const handleFeedback = useCallback(
     (msgId: string, type: 'helpful' | 'reported') => {
@@ -413,13 +459,28 @@ export function ChatPage() {
               <div className="msg-body">
                 <NameChip />
                 <Bubble role="assistant">{greeting}</Bubble>
-                <GuessYouAsk items={features} onPick={chat.send} />
+                {featuresError ? (
+                  /* UX-6：猜你想问加载失败 → 可见占位 + 重试（不再静默 setFeatures([])） */
+                  <div className="feedback-bar">
+                    <button className="btn btn-ghost" type="button" onClick={() => loadFeatures(scenarioId)}>
+                      <Icon name="AlertCircle" size="inline" /> 猜你想问加载失败，点击重试
+                    </button>
+                  </div>
+                ) : (
+                  <GuessYouAsk items={features} onPick={chat.send} />
+                )}
               </div>
             </div>
           </>
         )}
 
-        {messages.map((m) => (
+        {/*
+          PERF-2：已完成列表与流式尾条分离渲染。
+          已完成部分由 MessageRow(memo) 渲染；正在流式的那条单独放在尾部，
+          token 合帧更新时只重渲染尾条，已完成消息的 DOM 与 memo 比较完全不参与热路径。
+          两条 JSX 是同一父容器的兄弟节点，key=m.id 仍可跨区完成 reconciliation（PERF-3 保持）。
+        */}
+        {completed.map((m) => (
           <ErrorBoundary
             key={m.id}
             inline
@@ -442,6 +503,30 @@ export function ChatPage() {
             />
           </ErrorBoundary>
         ))}
+
+        {streamingTail && (
+          <ErrorBoundary
+            key={streamingTail.id}
+            inline
+            scenario={scenarioId}
+            fallback={
+              <div className="msg-row degraded">
+                <div className="msg-body">
+                  <p className="fallback-note">这条消息显示失败</p>
+                </div>
+              </div>
+            }
+          >
+            <MessageRow
+              m={streamingTail}
+              remembered={rememberedIds.has(streamingTail.id)}
+              onRemember={rememberMessage}
+              onFeedback={handleFeedback}
+              onHandoff={goHandoff}
+              onPick={chat.send}
+            />
+          </ErrorBoundary>
+        )}
 
         {/* 息屏/切后台把 SSE 挂起后的引导（既有语义保留：只提示，不自动重发） */}
         {isStreaming && chat.streamStalled && (

@@ -173,14 +173,16 @@ describe('[移动-兼容] 输入法体验（手机软键盘）', () => {
   });
 
   /**
-   * 观察项（增强建议，非缺陷）：输入框未设置 enterkeyhint / inputmode。
-   * 影响：iOS/Android 软键盘右下角显示默认「换行」而非「发送」，
-   * 用户需多一次视觉确认。建议加 enterkeyhint="send"。
-   * 当前锁定现状，避免后续无意回归。
+   * 增强项（已实现，测试与代码事实对齐）：
+   * 输入框已设置 enterkeyhint="send" 与 inputMode="text"，
+   * iOS/Android 软键盘右下角直接显示「发送」而非「换行」。
+   * 【纠错说明】旧断言写的是「不应包含」（观察项），但代码有意设置了这两个属性，
+   * 属基线遗留失败。此处按代码事实改为「应包含」，锁死不回归。
    */
-  it('（观察项）输入框暂未设置 enterkeyhint/inputmode —— 软键盘回车键文案未优化', () => {
-    expect(inputBar).not.toContain('enterkeyhint');
-    expect(inputBar).not.toContain('inputMode');
+  it('输入框已设置 enterkeyhint/inputmode —— 软键盘回车键文案已优化', () => {
+    // JSX 属性为驼峰 enterKeyHint；React 运行时将其映射为小写 HTML 属性 enterkeyhint
+    expect(inputBar).toContain('enterKeyHint');
+    expect(inputBar).toContain('inputMode');
   });
 });
 

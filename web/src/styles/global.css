@@ -2928,3 +2928,56 @@ svg {
   box-shadow: var(--focus-ring);
   outline: none;
 }
+
+/* ================================================================
+   15. T05 呈现优化增量（LOAD-4/5/6 · UX-6 · PERF-2 · MOB-4）
+   ----------------------------------------------------------------
+   骨架屏 / 触摸抑制。色值只走 token；固定定位与合成层提示属性维持零命中（MOB-5）。
+   ================================================================ */
+
+/* ---- 15.1 骨架屏（Suspense fallback 用；index.html 首帧静态骨架用硬编码同款）---- */
+.page-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-gutter);
+}
+
+.sk-line {
+  display: block;
+  height: 16px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-warm);
+  animation: jlau-sk-pulse 1.4s var(--ease-standard) infinite;
+}
+
+.sk-line.mid {
+  width: 72%;
+}
+
+.sk-line.short {
+  width: 44%;
+}
+
+@keyframes jlau-sk-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-line {
+    animation: none;
+  }
+}
+
+/* ---- 15.2 双击缩放抑制（MOB-4）：可点元素上禁用双击放大/300ms 延迟 ---- */
+button,
+a,
+summary {
+  touch-action: manipulation;
+}

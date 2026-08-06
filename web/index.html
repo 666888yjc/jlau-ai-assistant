@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
+      content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <!-- 主色已由微信绿 #07C160 改为农大绿 #3D6B51（与 design-tokens.json color.accent 保持一致） -->
     <meta name="theme-color" content="#3D6B51" />
@@ -14,8 +14,10 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233D6B51'/%3E%3Cpath d='M16 25V13' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M16 17c0-4 3-7 7-7 0 4-3 7-7 7Z' fill='%23FFFFFF'/%3E%3Cpath d='M16 20c0-3.2-2.4-5.6-5.6-5.6 0 3.2 2.4 5.6 5.6 5.6Z' fill='%23B58234'/%3E%3C/svg%3E"
     />
     <title>吉农 AI 助手 · 吉小农</title>
+    <!-- LOAD-6：入口与关键 chunk 的 modulepreload 由 Vite 构建自动注入（带哈希），
+         这里不手写 —— 手写 /src/ 引用会被 Vite 内联成 base64 data URI，反而膨胀 HTML。 -->
     <style>
-      /* 防白闪：token 注入前先给出纸底/墨色，深色系统偏好下同步 */
+      /* 防白闪：token 注入前先给出纸底/墨色，深色系统偏好下同步（MOB-5 保护项 9，勿删） */
       html {
         background: #faf9f5;
       }
@@ -24,10 +26,83 @@
           background: #131512;
         }
       }
+      /* LOAD-5 首帧骨架：JS 未就绪前给一个「有结构」的等待画面，弱网 1s 内可见。
+         这里用硬编码 token 值（此时 JS 尚未注入 CSS 变量），与 global.css §15 的
+         .page-skeleton 视觉一致。Suspense fallback 复用后者，两处观感统一。 */
+      .sk-shell {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        max-width: 480px;
+        margin: 0 auto;
+        background: #faf9f5;
+      }
+      .sk-header {
+        height: 48px;
+        background: #ffffff;
+        border-bottom: 1px solid #e4e2d9;
+      }
+      .sk-body {
+        flex: 1;
+        padding: 24px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .sk-line {
+        display: block;
+        height: 14px;
+        border-radius: 9999px;
+        background: #f2f1eb;
+        animation: sk-pulse 1.4s ease-in-out infinite;
+      }
+      .sk-line.mid {
+        width: 72%;
+      }
+      .sk-line.short {
+        width: 44%;
+      }
+      @keyframes sk-pulse {
+        0%,
+        100% {
+          opacity: 0.5;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      @media (prefers-color-scheme: dark) {
+        .sk-shell {
+          background: #131512;
+        }
+        .sk-header {
+          background: #1b1e19;
+          border-bottom-color: #2c302a;
+        }
+        .sk-line {
+          background: #232720;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .sk-line {
+          animation: none;
+        }
+      }
     </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- 首帧静态骨架：React 挂载后会被整体替换，不存在残留 -->
+      <div class="sk-shell" aria-hidden="true">
+        <div class="sk-header"></div>
+        <div class="sk-body">
+          <span class="sk-line"></span>
+          <span class="sk-line mid"></span>
+          <span class="sk-line"></span>
+          <span class="sk-line short"></span>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
