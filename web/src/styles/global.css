@@ -2740,3 +2740,191 @@ svg {
   flex-shrink: 0;
   width: 32px;
 }
+
+/* ================================================================
+   14. T04 可控感整包增量（UX-1/2/3/4 · MOB-1/3 · ERR-1/4 · PERF-1/3）
+   ----------------------------------------------------------------
+   遵守文件头硬约束：色值只走 token、尺寸只用 4 的倍数、零 backdrop-filter。
+   MOB-5 保护清单：固定定位与合成层提示属性维持零命中（基线见 scripts/verify-protection.sh）。
+   sticky 基线 1 → 2（.new-content-pill 新增），允许 —— 只固定定位必须保持 0。
+   ================================================================ */
+
+/* ---- 14.1 视觉视口高度（MOB-1 / 风险 R3）----
+   键盘弹起时 100dvh 不收缩（iOS Safari）→ 用 --vvh（visualViewport 实测高度）覆盖。
+   既有 dvh 规则保留在文件前面，这里只是叠加覆盖：
+     --vvh 可用 → 用它（键盘上方精确高度）；
+     不可用   → 退化为 calc(100dvh - var(--kb-inset))（近似，零回归）。 */
+.app-shell {
+  height: var(--vvh, calc(100dvh - var(--kb-inset, 0px)));
+}
+
+/* ---- 14.2 触控优化（MOB-4 提前落地；键盘相关手势不误触） ---- */
+.app-shell {
+  touch-action: manipulation;
+}
+
+.chat-list {
+  touch-action: pan-y;
+}
+
+/* ---- 14.3 新内容浮标（UX-2）----
+   sticky 而非 fixed：浮在滚动列表底部，点击回底。 */
+.new-content-pill {
+  position: sticky;
+  bottom: var(--space-3);
+  align-self: center;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 36px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--elev-raised);
+  color: var(--fg-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-emphasize);
+  line-height: var(--leading-tight);
+  transition:
+    background var(--motion-instant) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-standard);
+}
+
+.new-content-pill:active {
+  transform: scale(0.97);
+  background: var(--surface-warm);
+}
+
+@media (hover: hover) {
+  .new-content-pill:hover {
+    background: var(--surface-warm);
+  }
+}
+
+.new-content-pill:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.new-content-pill svg {
+  color: var(--accent-3);
+}
+
+/* ---- 14.4 错误卡与人工兜底卡（UX-3 / UX-4）---- */
+.error-notice {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-gutter) 0;
+}
+
+.error-card,
+.handoff-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+}
+
+.error-card {
+  background: var(--danger-soft);
+  border: 1px solid transparent;
+}
+
+.error-card-copy {
+  min-width: 0;
+}
+
+.error-card-title {
+  color: var(--danger);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-announce);
+  line-height: var(--leading-snug);
+}
+
+.error-card-desc {
+  color: var(--fg-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  margin-top: var(--space-1);
+}
+
+.error-card .btn-primary {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.handoff-card {
+  background: var(--grain-soft);
+  border: 1px solid transparent;
+}
+
+.handoff-card-copy {
+  min-width: 0;
+}
+
+.handoff-card-title {
+  color: var(--grain-deep);
+  font-size: var(--text-md);
+  font-weight: var(--weight-announce);
+  line-height: var(--leading-snug);
+}
+
+.handoff-card-desc {
+  color: var(--fg-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  margin-top: var(--space-1);
+}
+
+.handoff-card .btn-primary {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ---- 14.5 错误边界降级（ERR-4）---- */
+.boundary-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface-warm);
+  color: var(--fg-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.boundary-fallback.inline {
+  padding: var(--space-3);
+}
+
+.boundary-fallback p {
+  min-width: 0;
+}
+
+/* 消息行局部降级：整行半透明，保留占位 */
+.msg-row.degraded {
+  opacity: 0.6;
+}
+
+/* ---- 14.6 停止标记（UX-1）---- */
+.msg-stopped {
+  align-self: flex-start;
+  font-size: var(--text-xs);
+  line-height: var(--leading-tight);
+  color: var(--meta);
+  margin-top: var(--space-1);
+}
+
+/* 焦点环补齐：新增可点元素 */
+.new-content-pill:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}

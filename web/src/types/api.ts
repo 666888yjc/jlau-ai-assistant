@@ -12,6 +12,11 @@ export interface ChatRequest {
   message: string;
   history: ChatMessage[];
   conversation_id: string;
+  /**
+   * 幂等键（API-1）。首发与全部重试复用同一个值，服务端 idempotency 中间件
+   * 据此保证 LLM 只被真正调用一次。同时经 X-Request-Id 头透传。
+   */
+  request_id?: string;
 }
 
 export interface SourceItem {

@@ -3,6 +3,7 @@ import {
   ArrowRight,
   BookOpen,
   CheckCircle,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -18,6 +19,7 @@ import {
   Plus,
   Send,
   ShieldCheck,
+  Square,
   Sun,
   ThumbsUp,
   Trash2,
@@ -35,6 +37,7 @@ export type IconName =
   | 'ArrowRight'
   | 'BookOpen'
   | 'CheckCircle'
+  | 'ChevronDown'
   | 'ChevronLeft'
   | 'ChevronRight'
   | 'Download'
@@ -50,6 +53,7 @@ export type IconName =
   | 'Plus'
   | 'Send'
   | 'ShieldCheck'
+  | 'Square'
   | 'Sun'
   | 'ThumbsUp'
   | 'Trash2'
@@ -60,6 +64,7 @@ const registry: Record<IconName, LucideIcon> = {
   ArrowRight,
   BookOpen,
   CheckCircle,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -75,6 +80,7 @@ const registry: Record<IconName, LucideIcon> = {
   Plus,
   Send,
   ShieldCheck,
+  Square,
   Sun,
   ThumbsUp,
   Trash2,

@@ -12,3 +12,4 @@ coverage/
 *.timestamp-*.mjs
 # 体积门禁的临时构建输出（不进版本库）
 dist_t01_verify/
+dist_t04_verify/

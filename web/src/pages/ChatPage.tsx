@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../components/NavBar';
 import { Avatar, Bubble, FeedbackBar, NameChip, SourceFold, TypingIndicator } from '../components/ChatBits';
@@ -9,12 +9,20 @@ import { GuessYouAsk, GuessChips } from '../components/GuessYouAsk';
 import { Icon } from '../components/Icon';
 import { Illustration } from '../components/Illustration';
 import { useToast } from '../components/Toast';
-import { getFeatures, postFeedback, streamChat } from '../lib/api';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { ErrorNotice } from '../components/ErrorNotice';
+import { NewContentPill } from '../components/NewContentPill';
+import { getFeatures, postFeedback } from '../lib/api';
 import { addMemory, buildGreeting, isMemoryTextTruncated, readMemory, readProfile } from '../lib/profile';
+import { shouldRenderErrorCard } from '../lib/errors';
+import { track } from '../lib/analytics';
+import { useChatStream } from '../hooks/useChatStream';
+import { useVisualViewport } from '../hooks/useVisualViewport';
+import { useScrollFollow } from '../hooks/useScrollFollow';
 // 记忆写入的五种结果文案（架构 §2.9）在 ProfilePage 里定义并导出，
 // 这里直接复用，避免同一套提示语在两个页面各写一份、日后改一处漏一处。
 import { memoryToastText } from './ProfilePage';
-import type { FallbackContact, FeatureItem, SourceItem, SSEEvent } from '../types/api';
+import type { FallbackContact, FeatureItem, SourceItem } from '../types/api';
 import type { UIMessage } from '../types/chat';
 
 // ---- 会话本地持久化（刷新不丢聊天）----
@@ -22,14 +30,13 @@ import type { UIMessage } from '../types/chat';
 const CONV_STORAGE_PREFIX = 'jxn-conv-';
 const CONV_SAVE_DEBOUNCE_MS = 250;
 
-// 手机息屏 / 切到别的 App 时，浏览器可能把 SSE 流挂起：回到前台后 loading 还亮着，内容却不再增长。
-// 回前台那一刻若距最后一个 token 已超过这个阈值，就认定流已经死了，给用户一个「重新生成」的出口。
-const STREAM_STALL_THRESHOLD_MS = 8000;
-
 interface StoredConversation {
   conversationId: string;
   messages: UIMessage[];
 }
+
+let seq = 0;
+const nextId = (): string => `m${Date.now()}-${seq++}`;
 
 /**
  * 恢复历史消息：status 统一置 'done'（历史不再流式），
@@ -60,6 +67,7 @@ function normalizeRestoredMessage(raw: unknown): UIMessage | null {
     feedback: m.feedback === 'helpful' || m.feedback === 'reported' ? m.feedback : null,
     kind,
     sticker: kind === 'sticker' ? rawSticker : undefined,
+    stopped: m.stopped === true ? true : undefined,
   };
 }
 
@@ -96,24 +104,132 @@ function writeConversation(scenarioId: string, snap: StoredConversation): void {
   }
 }
 
-let seq = 0;
-const nextId = () => `m${Date.now()}-${seq++}`;
+// ---------------------------------------------------------------------------
+// 单条消息行（PERF-3：React.memo + 稳定 key=m.id；外层再包 ErrorBoundary 局部降级）
+// ---------------------------------------------------------------------------
+
+interface MessageRowProps {
+  m: UIMessage;
+  remembered: boolean;
+  onRemember: (m: UIMessage) => void;
+  onFeedback: (msgId: string, type: 'helpful' | 'reported') => void;
+  onHandoff: () => void;
+  onPick: (text: string) => void;
+}
+
+const MessageRow = memo(function MessageRow({
+  m,
+  remembered,
+  onRemember,
+  onFeedback,
+  onHandoff,
+  onPick,
+}: MessageRowProps) {
+  return (
+    <div className={m.role === 'user' ? 'msg-row user' : 'msg-row'}>
+      <Avatar
+        self={m.role === 'user'}
+        expression={m.status === 'streaming' ? 'think' : 'calm'}
+      />
+      <div className="msg-body">
+        {m.role === 'assistant' && <NameChip />}
+        {m.kind === 'sticker' ? (
+          <div
+            className="bubble sticker"
+            role="img"
+            aria-label={m.sticker ? STICKER_LABELS[m.sticker] : m.content}
+          >
+            {m.sticker ? <Mascot size={48} expression={m.sticker} /> : m.content}
+          </div>
+        ) : m.status === 'streaming' && m.content === '' ? (
+          <Bubble role="assistant">
+            <TypingIndicator />
+          </Bubble>
+        ) : (
+          <Bubble role={m.role} status={m.status === 'error' ? 'error' : undefined}>
+            {m.content}
+          </Bubble>
+        )}
+
+        {/* UX-1：用户主动停止的标记。不写进 content（避免污染 LLM 历史） */}
+        {m.stopped && <span className="msg-stopped">已停止</span>}
+
+        {/* 「记住这条」：把用户自己说过的话存进本机记忆库，下次空态问候会回显 */}
+        {m.role === 'user' && m.status === 'done' && (
+          <div className="feedback-bar">
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => onRemember(m)}
+              disabled={remembered}
+            >
+              <Icon name="Plus" size="inline" />
+              {remembered ? '已记住' : '记住这条'}
+            </button>
+          </div>
+        )}
+
+        {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
+          <SourceFold items={m.sources} />
+        )}
+
+        {m.role === 'assistant' && m.guesses && (
+          <>
+            {m.guesses.length > 0 && (
+              <>
+                <p className="fallback-note">
+                  这个问题我还不太确定，建议联系{m.contact?.name}（{m.contact?.phone}），或看看：
+                </p>
+                <GuessChips guesses={m.guesses} onPick={onPick} />
+              </>
+            )}
+            <div className="feedback-bar">
+              <button className="btn btn-ghost" type="button" onClick={onHandoff}>
+                <Icon name="Headset" size="inline" /> 转人工
+              </button>
+              {m.guesses.length === 0 && m.contact && (
+                <a className="btn btn-ghost" href={`tel:${m.contact.phone}`}>
+                  <Icon name="Phone" size="inline" /> {m.contact.name}：{m.contact.phone}
+                </a>
+              )}
+            </div>
+          </>
+        )}
+
+        {m.role === 'assistant' &&
+          m.status === 'done' &&
+          !m.guesses &&
+          !m.stopped && (
+            <FeedbackBar
+              given={m.feedback ?? null}
+              onFeedback={(type) => onFeedback(m.id, type)}
+            />
+          )}
+      </div>
+    </div>
+  );
+});
+
+// ---------------------------------------------------------------------------
+// ChatPage
+// ---------------------------------------------------------------------------
 
 export function ChatPage() {
   const [params] = useSearchParams();
   const scenarioId = params.get('scenario') || 'baodao';
   const navigate = useNavigate();
 
-  // 初始化：优先从 localStorage 按场景维度恢复，否则空会话 + 新 conversationId
-  const [convId] = useState<string>(() => loadConversation(scenarioId)?.conversationId ?? `conv-${Date.now()}`);
-  const [messages, setMessages] = useState<UIMessage[]>(() => loadConversation(scenarioId)?.messages ?? []);
+  // 初始化：优先从 localStorage 按场景维度恢复，否则空会话 + 新 conversationId。
+  // initialMessages 按场景 memo：?scenario= 变化时会重算，但真正生效靠 resetForScenario（ERR-6）。
+  const initialMessages = useMemo(() => loadConversation(scenarioId)?.messages ?? [], [scenarioId]);
+  const [convId, setConvId] = useState<string>(() => loadConversation(scenarioId)?.conversationId ?? `conv-${Date.now()}`);
   const [features, setFeatures] = useState<FeatureItem[]>([]);
   // 模块页「问吉小农」带来的 ?q= 只做预填，绝不自动发送——最后一下留给用户
   const [input, setInput] = useState<string>(() => params.get('q') ?? '');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // SSE 被息屏/切后台挂起的提示态。只有 loading 仍为 true 时才有意义，渲染处会一起判断。
-  const [streamStalled, setStreamStalled] = useState(false);
+  const [stickerOpen, setStickerOpen] = useState(false);
+
+  const chat = useChatStream({ scenarioId, conversationId: convId, initialMessages });
+  const { messages, updateMessages, isStreaming } = chat;
 
   // 空态问候语：纯函数拼装，只进 JSX，绝不进 streamChat 的任何参数（PRD D5）
   const greeting = useMemo(() => buildGreeting(readProfile(), readMemory()), []);
@@ -121,9 +237,6 @@ export function ChatPage() {
   const { toastNode, showToast } = useToast();
   // 「已记住」是内存态：刷新后回到可点，再点会被 addMemory 的 duplicate 拦住（架构 §8 A4）
   const [rememberedIds, setRememberedIds] = useState<ReadonlySet<string>>(() => new Set<string>());
-
-  // 贴纸面板开关态（P1）：仅在用户点输入栏贴纸按钮时展开，不存会话
-  const [stickerOpen, setStickerOpen] = useState(false);
 
   const rememberMessage = useCallback(
     (msg: UIMessage) => {
@@ -150,7 +263,7 @@ export function ChatPage() {
    */
   const insertSticker = useCallback(
     (expr: MascotExpression) => {
-      setMessages((prev) => [
+      updateMessages((prev) => [
         ...prev,
         {
           id: nextId(),
@@ -162,21 +275,18 @@ export function ChatPage() {
         },
       ]);
     },
-    [],
+    [updateMessages],
   );
 
+  // —— 视觉视口 & 滚动跟随（MOB-1 × UX-2 咬合，R3）——
   const listRef = useRef<HTMLDivElement>(null);
-  const activeAssistantId = useRef<string | null>(null);
+  const vv = useVisualViewport();
+  const scroll = useScrollFollow({ listRef, suppressUntilRef: vv.suppressUntilRef });
 
-  // —— SSE 挂起检测 & 主动中断（流控制层，不参与请求构造、不参与持久化）——
-  /** 最后一个 token 文本到达的时刻；0 表示本轮还没收到过任何 token */
-  const lastTokenAtRef = useRef<number>(0);
-  /** streamStalled 的镜像，供高频 token 回调里免 re-render 地判断，避免每个 token 都触发一次 setState */
-  const streamStalledRef = useRef<boolean>(false);
-  /** 当前在途请求的中断器；「重新生成」时先掐掉这条已经死掉的流 */
-  const abortRef = useRef<AbortController | null>(null);
-  /** 待重发的问题：regenerate 只负责记下来，等 loading 落回 false 后由 effect 真正发出去 */
-  const pendingRetryRef = useRef<string | null>(null);
+  // 内容变化后：pinned 时跟随 / 脱离时检测新内容（UX-2）
+  useEffect(() => {
+    scroll.follow();
+  }, [messages, scroll.follow]);
 
   // —— 防抖持久化：流式 token 高频追加时 250ms 合并写入，避免卡顿；卸载前立即落盘 ——
   const saveTimerRef = useRef<number | null>(null);
@@ -217,199 +327,51 @@ export function ChatPage() {
     };
   }, []);
 
-  const scrollToBottom = useCallback(() => {
-    requestAnimationFrame(() => {
-      const el = listRef.current;
-      if (el) el.scrollTop = el.scrollHeight;
-    });
+  // —— ERR-6：?scenario= 变化时重置（清消息 + 换 conversation + 掐断旧流）——
+  // 用 useLayoutEffect：在浏览器绘制前完成重置，避免旧场景消息闪一帧。
+  const prevScenarioRef = useRef(scenarioId);
+  useLayoutEffect(() => {
+    if (prevScenarioRef.current === scenarioId) return;
+    prevScenarioRef.current = scenarioId;
+    const loaded = loadConversation(scenarioId);
+    const nextConv = loaded?.conversationId ?? `conv-${Date.now()}`;
+    setConvId(nextConv);
+    chat.resetForScenario(scenarioId, nextConv, loaded?.messages ?? []);
+    setInput(params.get('q') ?? '');
+    track({ ev: 'page_view', scenario: scenarioId });
+  }, [scenarioId, params, chat.resetForScenario]);
+
+  // 首载也打一次 page_view（场景切换已在上方 effect 打）
+  useEffect(() => {
+    track({ ev: 'page_view', scenario: scenarioId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 猜你想问：加载失败不再纯静默（UX-6 完整占位在 T05，这里先留可观测日志）
   useEffect(() => {
+    let cancelled = false;
     getFeatures(scenarioId)
-      .then((r) => setFeatures(r.data))
-      .catch(() => setFeatures([]));
+      .then((r) => {
+        if (!cancelled) setFeatures(r.data);
+      })
+      .catch((e) => {
+        console.warn('[features] 加载失败:', e instanceof Error ? e.message : String(e));
+        if (!cancelled) setFeatures([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [scenarioId]);
 
-  useEffect(scrollToBottom, [messages, loading]);
-
-  // 从后台/息屏回到前台：还在 loading 但已经很久没有新 token，就是被浏览器挂起了。
-  // 只做提示，不自动重发——自动重发会在用户不知情时多消耗一次额度。
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.visibilityState !== 'visible') return;
-      if (!loading) return;
-      if (Date.now() - lastTokenAtRef.current <= STREAM_STALL_THRESHOLD_MS) return;
-      streamStalledRef.current = true;
-      setStreamStalled(true);
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [loading]);
-
-  const appendToken = useCallback((content: string) => {
-    const id = activeAssistantId.current;
-    if (!id) return;
-    // 真正的 token 文本到达 → 刷新活跃时刻，并解除可能已经亮起的挂起提示
-    lastTokenAtRef.current = Date.now();
-    if (streamStalledRef.current) {
-      streamStalledRef.current = false;
-      setStreamStalled(false);
-    }
-    setMessages((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, content: m.content + content } : m)),
-    );
-  }, []);
-
-  const handleEvent = useCallback(
-    (ev: SSEEvent) => {
-      if (ev.type === 'token') {
-        appendToken(ev.content);
-      } else if (ev.type === 'sources') {
-        const id = activeAssistantId.current;
-        if (id) setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, sources: ev.items } : m)));
-      } else if (ev.type === 'fallback') {
-        const id = activeAssistantId.current;
-        if (id)
-          setMessages((prev) =>
-            prev.map((m) => (m.id === id ? { ...m, guesses: ev.guesses, contact: ev.contact } : m)),
-          );
-      } else if (ev.type === 'done') {
-        const id = activeAssistantId.current;
-        if (id)
-          setMessages((prev) =>
-            prev.map((m) => (m.id === id ? { ...m, status: 'done', messageId: ev.message_id } : m)),
-          );
-        activeAssistantId.current = null;
-        setLoading(false);
-      } else if (ev.type === 'error') {
-        const id = activeAssistantId.current;
-        if (id)
-          setMessages((prev) =>
-            prev.map((m) => (m.id === id ? { ...m, status: 'error', content: ev.message } : m)),
-          );
-        activeAssistantId.current = null;
-        setLoading(false);
-        setError(null);
-      }
+  const handleFeedback = useCallback(
+    (msgId: string, type: 'helpful' | 'reported') => {
+      updateMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, feedback: type } : m)));
+      postFeedback({ message_id: msgId, type }).catch((e) => {
+        // 反馈失败不阻断对话，但不再纯静默（MAINT-4）
+        console.warn('[feedback] 上报失败:', e instanceof Error ? e.message : String(e));
+      });
     },
-    [appendToken],
-  );
-
-  const send = useCallback(
-    async (text: string) => {
-      const question = text.trim();
-      if (!question || loading) return;
-      setError(null);
-      setInput('');
-
-      // 贴纸消息不得进入 LLM 上下文（N5 / 架构 §2.6 约定 4）；
-      // 请求体字段结构不变，只是过滤掉既有的 history 内容
-      const history = messages
-        .filter((m) => m.status === 'done' && m.kind !== 'sticker')
-        .map((m) => ({ role: m.role, content: m.content }));
-
-      const userMsg: UIMessage = { id: nextId(), role: 'user', content: question, status: 'done' };
-      const assistantId = nextId();
-      const assistantMsg: UIMessage = {
-        id: assistantId,
-        role: 'assistant',
-        content: '',
-        status: 'streaming',
-        feedback: null,
-      };
-      activeAssistantId.current = assistantId;
-      setMessages((prev) => [...prev, userMsg, assistantMsg]);
-      setLoading(true);
-
-      // 新一轮流开始：把挂起检测的基线拨到此刻，并清掉上一轮可能残留的提示
-      lastTokenAtRef.current = Date.now();
-      streamStalledRef.current = false;
-      setStreamStalled(false);
-
-      // 只新增流控制层：请求体字段结构与顺序逐字节不变，signal 是 streamChat 既有的第三个可选参数
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      try {
-        await streamChat(
-          { scenario_id: scenarioId, message: question, history, conversation_id: convId },
-          handleEvent,
-          controller.signal,
-        );
-      } catch {
-        // 用户点「重新生成」主动掐流不算故障，UI 已由 regenerate 接管，这里不能再写回错误态
-        if (controller.signal.aborted) return;
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantId
-              ? { ...m, status: 'error', content: '网络开小差，点此重发' }
-              : m,
-          ),
-        );
-        activeAssistantId.current = null;
-        setLoading(false);
-        setError('网络开小差，请稍后重试');
-      } finally {
-        // 只清理自己那一个，避免把后一轮请求的中断器误清空
-        if (abortRef.current === controller) abortRef.current = null;
-      }
-    },
-    [loading, messages, scenarioId, convId, handleEvent],
-  );
-
-  const retryLast = useCallback(() => {
-    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
-    if (lastUser) send(lastUser.content);
-    setError(null);
-  }, [messages, send]);
-
-  /**
-   * 「重新生成」：SSE 被息屏挂起后的自救出口。
-   * 先 abort 掉那条已经死掉的流，再把本轮未完成的「提问 + 空回答」摘出列表，
-   * 然后交给 pendingRetryRef 在 loading 落回 false 后原样重发一次——
-   * 这样重发时算出来的 history 与首次发送完全一致，请求体结构也不变；不新增任何持久化代码。
-   */
-  const regenerate = useCallback(() => {
-    const stalledAssistantId = activeAssistantId.current;
-    abortRef.current?.abort();
-    abortRef.current = null;
-    activeAssistantId.current = null;
-
-    // 贴纸不是提问（架构 §2.6 约定 4），找最后一条真正的用户问句
-    const lastUser = [...messages].reverse().find((m) => m.role === 'user' && m.kind !== 'sticker');
-    const question = lastUser?.content.trim() ?? '';
-    const lastUserId = lastUser?.id ?? null;
-
-    setMessages((prev) => prev.filter((m) => m.id !== stalledAssistantId && m.id !== lastUserId));
-    streamStalledRef.current = false;
-    setStreamStalled(false);
-    setError(null);
-    setLoading(false);
-    pendingRetryRef.current = question.length > 0 ? question : null;
-  }, [messages]);
-
-  // regenerate 里不能直接调 send：send 闭包里捕获的 loading 此刻仍是 true，会被它自己的守卫挡回去。
-  // 所以等这一帧渲染完、send 拿到 loading=false 的新闭包后，再由这个 effect 发出去。
-  useEffect(() => {
-    if (loading) return;
-    const question = pendingRetryRef.current;
-    if (question === null) return;
-    pendingRetryRef.current = null;
-    void send(question);
-  }, [loading, send]);
-
-  const onFeedback = useCallback(
-    async (type: 'helpful' | 'reported', messageId?: string) => {
-      if (!messageId) return;
-      try {
-        await postFeedback({ message_id: messageId, type });
-      } catch {
-        /* 反馈失败不阻断对话 */
-      }
-    },
-    [],
+    [updateMessages],
   );
 
   const goHandoff = useCallback(() => navigate('/handoff'), [navigate]);
@@ -439,7 +401,7 @@ export function ChatPage() {
         </>
       }
     >
-      <div className="page-scroll chat-list" ref={listRef}>
+      <div className="page-scroll chat-list" ref={listRef} role="log" aria-live="polite">
         {messages.length === 0 && (
           <>
             {/* 空会话不是「出错了」，而是「还没开始」——用一张细线插画给开场留白 */}
@@ -451,124 +413,72 @@ export function ChatPage() {
               <div className="msg-body">
                 <NameChip />
                 <Bubble role="assistant">{greeting}</Bubble>
-                <GuessYouAsk items={features} onPick={send} />
+                <GuessYouAsk items={features} onPick={chat.send} />
               </div>
             </div>
           </>
         )}
 
         {messages.map((m) => (
-          <div key={m.id} className={m.role === 'user' ? 'msg-row user' : 'msg-row'}>
-            <Avatar
-              self={m.role === 'user'}
-              expression={m.status === 'streaming' ? 'think' : 'calm'}
+          <ErrorBoundary
+            key={m.id}
+            inline
+            scenario={scenarioId}
+            fallback={
+              <div className="msg-row degraded">
+                <div className="msg-body">
+                  <p className="fallback-note">这条消息显示失败</p>
+                </div>
+              </div>
+            }
+          >
+            <MessageRow
+              m={m}
+              remembered={rememberedIds.has(m.id)}
+              onRemember={rememberMessage}
+              onFeedback={handleFeedback}
+              onHandoff={goHandoff}
+              onPick={chat.send}
             />
-            <div className="msg-body">
-              {m.role === 'assistant' && <NameChip />}
-              {m.kind === 'sticker' ? (
-                <div
-                  className="bubble sticker"
-                  role="img"
-                  aria-label={m.sticker ? STICKER_LABELS[m.sticker] : m.content}
-                >
-                  {m.sticker ? <Mascot size={48} expression={m.sticker} /> : m.content}
-                </div>
-              ) : m.status === 'streaming' && m.content === '' ? (
-                <Bubble role="assistant">
-                  <TypingIndicator />
-                </Bubble>
-              ) : (
-                <Bubble role={m.role} status={m.status === 'error' ? 'error' : undefined}>
-                  {m.content}
-                </Bubble>
-              )}
-
-              {/* 「记住这条」：把用户自己说过的话存进本机记忆库，下次空态问候会回显 */}
-              {m.role === 'user' && m.status === 'done' && (
-                <div className="feedback-bar">
-                  <button
-                    className="btn btn-ghost"
-                    type="button"
-                    onClick={() => rememberMessage(m)}
-                    disabled={rememberedIds.has(m.id)}
-                  >
-                    <Icon name="Plus" size="inline" />
-                    {rememberedIds.has(m.id) ? '已记住' : '记住这条'}
-                  </button>
-                </div>
-              )}
-
-              {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
-                <SourceFold items={m.sources} />
-              )}
-
-              {m.role === 'assistant' && m.guesses && (
-                <>
-                  {m.guesses.length > 0 && (
-                    <>
-                      <p className="fallback-note">
-                        这个问题我还不太确定，建议联系{m.contact?.name}（{m.contact?.phone}），或看看：
-                      </p>
-                      <GuessChips guesses={m.guesses} onPick={send} />
-                    </>
-                  )}
-                  <div className="feedback-bar">
-                    <button className="btn btn-ghost" type="button" onClick={goHandoff}>
-                      <Icon name="Headset" size="inline" /> 转人工
-                    </button>
-                    {m.guesses.length === 0 && m.contact && (
-                      <a className="btn btn-ghost" href={`tel:${m.contact.phone}`}>
-                        <Icon name="Phone" size="inline" /> {m.contact.name}：{m.contact.phone}
-                      </a>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {m.role === 'assistant' && m.status === 'done' && !m.guesses && (
-                <FeedbackBar
-                  given={m.feedback ?? null}
-                  onFeedback={(type) => {
-                    void onFeedback(type, m.messageId);
-                    setMessages((prev) =>
-                      prev.map((x) => (x.id === m.id ? { ...x, feedback: type } : x)),
-                    );
-                  }}
-                />
-              )}
-
-              {m.role === 'assistant' && m.status === 'error' && (
-                <div className="feedback-bar">
-                  <button className="btn btn-ghost" type="button" onClick={retryLast}>
-                    <Icon name="AlertCircle" size="inline" /> 点击重发
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          </ErrorBoundary>
         ))}
 
-        {/* 息屏/切后台把 SSE 挂起后的引导。复用既有 fallback-note + feedback-bar 样式，零新增 CSS。 */}
-        {loading && streamStalled && (
+        {/* 息屏/切后台把 SSE 挂起后的引导（既有语义保留：只提示，不自动重发） */}
+        {isStreaming && chat.streamStalled && (
           <div className="msg-row" role="status" aria-live="polite">
             <div className="msg-body">
               <p className="fallback-note">连接似乎中断了，内容可能没有更新。</p>
               <div className="feedback-bar">
-                <button className="btn btn-ghost" type="button" onClick={regenerate}>
+                <button className="btn btn-ghost" type="button" onClick={chat.regenerate}>
                   <Icon name="AlertCircle" size="inline" /> 重新生成
                 </button>
               </div>
             </div>
           </div>
         )}
+
+        {/* A3：SSE 帧降级提示（ERR-3）——不打断已生成内容，会话末追加一条提示 */}
+        {chat.state.degradedFrames > 0 && chat.state.phase === 'done' && (
+          <div className="msg-row" role="status" aria-live="polite">
+            <div className="msg-body">
+              <p className="fallback-note">这次回答可能不完整（部分内容传输中断），建议重新提问。</p>
+            </div>
+          </div>
+        )}
+
+        {/* UX-2：用户上翻后新消息到达 → 浮标回底 */}
+        {scroll.hasNewContent && <NewContentPill onClick={scroll.scrollToBottom} />}
       </div>
 
-      {error && (
-        <div className="error-banner" onClick={retryLast} role="button">
-          <Icon name="AlertCircle" size="inline" />
-          <span>{error}（点击重发）</span>
-        </div>
-      )}
+      {/* UX-3/UX-4：六类分级错误卡 + 人工兜底卡（shouldRenderErrorCard 过滤用户主动停止） */}
+      <ErrorNotice
+        error={chat.state.error && shouldRenderErrorCard(chat.state.error) ? chat.state.error : null}
+        showHandoff={chat.showHandoff}
+        onRetry={chat.retry}
+        onRephrase={chat.clearError}
+        onHandoff={goHandoff}
+        scenario={scenarioId}
+      />
 
       {stickerOpen && (
         <StickerPanel onPick={insertSticker} onClose={() => setStickerOpen(false)} />
@@ -577,8 +487,9 @@ export function ChatPage() {
       <InputBar
         value={input}
         onChange={setInput}
-        onSend={() => send(input)}
-        loading={loading}
+        onSend={() => chat.send(input)}
+        streaming={isStreaming}
+        onStop={chat.stop}
         onStickerClick={() => setStickerOpen((v) => !v)}
         stickerOpen={stickerOpen}
       />
