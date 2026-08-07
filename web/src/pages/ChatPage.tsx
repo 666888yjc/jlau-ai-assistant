@@ -120,6 +120,8 @@ interface MessageRowProps {
   onFeedback: (msgId: string, type: 'helpful' | 'reported') => void;
   onHandoff: () => void;
   onPick: (text: string) => void;
+  /** B5 UX-8：停止/错误草稿气泡的「继续生成」入口 */
+  onContinue: () => void;
 }
 
 const MessageRow = memo(function MessageRow({
@@ -129,6 +131,7 @@ const MessageRow = memo(function MessageRow({
   onFeedback,
   onHandoff,
   onPick,
+  onContinue,
 }: MessageRowProps) {
   return (
     <div className={m.role === 'user' ? 'msg-row user' : 'msg-row'}>
@@ -162,7 +165,17 @@ const MessageRow = memo(function MessageRow({
         )}
 
         {/* UX-1：用户主动停止的标记。不写进 content（避免污染 LLM 历史） */}
-        {m.stopped && <span className="msg-stopped">已停止</span>}
+        {m.stopped && (
+          <>
+            <span className="msg-stopped">已停止</span>
+            {/* B5 UX-8：停止草稿气泡的「继续生成」入口（同一气泡替换为完整答案，不重复） */}
+            <div className="feedback-bar">
+              <button className="btn btn-ghost" type="button" onClick={onContinue}>
+                <Icon name="RefreshCw" size="inline" /> 继续生成
+              </button>
+            </div>
+          </>
+        )}
 
         {/* 「记住这条」：把用户自己说过的话存进本机记忆库，下次空态问候会回显 */}
         {m.role === 'user' && m.status === 'done' && (
@@ -500,6 +513,7 @@ export function ChatPage() {
               onFeedback={handleFeedback}
               onHandoff={goHandoff}
               onPick={chat.send}
+              onContinue={chat.continueGeneration}
             />
           </ErrorBoundary>
         ))}
@@ -524,6 +538,7 @@ export function ChatPage() {
               onFeedback={handleFeedback}
               onHandoff={goHandoff}
               onPick={chat.send}
+              onContinue={chat.continueGeneration}
             />
           </ErrorBoundary>
         )}
@@ -559,9 +574,11 @@ export function ChatPage() {
       <ErrorNotice
         error={chat.state.error && shouldRenderErrorCard(chat.state.error) ? chat.state.error : null}
         showHandoff={chat.showHandoff}
+        continueAvailable={chat.hasDraft}
         onRetry={chat.retry}
         onRephrase={chat.clearError}
         onHandoff={goHandoff}
+        onContinue={chat.continueGeneration}
         scenario={scenarioId}
       />
 

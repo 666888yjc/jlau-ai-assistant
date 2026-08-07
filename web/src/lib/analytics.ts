@@ -30,6 +30,7 @@ export type AnalyticsEventName =
   | 'chat_abort'
   | 'chat_error'
   | 'chat_retry'
+  | 'chat_continue' // B5：续接发起（字段与 chat_send 同构，架构 §2.2 约定 6）
   | 'handoff_shown'
   | 'handoff_click'
   | 'boundary_catch';

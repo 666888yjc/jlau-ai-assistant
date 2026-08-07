@@ -17,6 +17,7 @@ import {
   MoreHorizontal,
   Phone,
   Plus,
+  RefreshCw,
   Send,
   ShieldCheck,
   Square,
@@ -51,6 +52,7 @@ export type IconName =
   | 'MoreHorizontal'
   | 'Phone'
   | 'Plus'
+  | 'RefreshCw'
   | 'Send'
   | 'ShieldCheck'
   | 'Square'
@@ -78,6 +80,7 @@ const registry: Record<IconName, LucideIcon> = {
   MoreHorizontal,
   Phone,
   Plus,
+  RefreshCw,
   Send,
   ShieldCheck,
   Square,

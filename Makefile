@@ -1,7 +1,7 @@
 # 吉小农薄壳 MVP —— 本地一键命令
 # 说明：本地联调后端走 3100，避开前端 dev 的 3000 冲突。
 
-.PHONY: install dev dev-real verify stop
+.PHONY: install dev dev-real verify gate stop
 
 install:
 	cd server && npm install
@@ -25,3 +25,7 @@ stop:
 	-@pkill -f "tsx src/index.ts" 2>/dev/null || true
 	-@pkill -f "node.*vite" 2>/dev/null || true
 	@echo "stopped"
+
+# 本地全量门禁（B5 / SEC-7 · MAINT-5）：typecheck→test→test:qa→build→size→scan→verify-protection
+gate:
+	bash scripts/gate.sh

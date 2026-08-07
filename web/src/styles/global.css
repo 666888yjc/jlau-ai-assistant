@@ -356,6 +356,11 @@ svg {
   gap: var(--space-2);
   align-items: flex-start;
   animation: jlau-msg-in var(--motion-base) var(--ease-out) both;
+  /* PERF-6（B5）：屏幕外的历史消息跳过布局/绘制。报到会话 <50 条时几乎不跳过（无副作用）；
+     100 条量级下 FPS 明显受益。contain-intrinsic-size:auto 用上次真实高度估算，滚动条不跳。
+     流式尾条在视口内不受影响；未引入新的定位/合成层提示属性（MOB-5 保护项保持 0 命中）。 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
 }
 
 .msg-row.user {

@@ -48,6 +48,7 @@
     },
 
     "_comment_headers": "LOAD-1/2/3 + SEC-4/5。规则自上而下匹配，越具体越靠前。content-disposition 一律显式 inline，覆盖平台可能下发的 attachment（LOAD-3）。HTML 用 no-cache（每次回源校验 ETag）而非 no-store（no-store 会彻底禁用缓存，报到日弱网下反而更慢）。",
+    "_comment_csp": "SEC-2b（B5，2026-08-07）：CSP 由 Report-Only 升级为 enforce，value 未变（含 frame-ancestors 'self'，SEC-5 保持）。升级前置：B1-B4 上线期间无样式/图片/接口被拦的用户反馈，且 Chrome/Safari iOS/微信 WebView 三端走查无 CSP violation。回滚预案（≤10min）：本 key 改回 content-security-policy-report-only → 重新部署/刷新 CDN → scripts/verify-headers.sh 复验 report-only 态。",
     "headers": [
       {
         "source": "/api/v1/chat",
@@ -99,7 +100,7 @@
           { "key": "permissions-policy", "value": "camera=(), microphone=(), payment=(), usb=(), geolocation=(self)" },
           { "key": "strict-transport-security", "value": "max-age=31536000; includeSubDomains" },
           {
-            "key": "content-security-policy-report-only",
+            "key": "content-security-policy",
             "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
           }
         ]

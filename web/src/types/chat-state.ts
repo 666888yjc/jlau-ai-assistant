@@ -11,13 +11,16 @@ export type ChatPhase =
   | 'idle' // 空闲，可发送
   | 'sending' // 已发出，等首 token（TTFB 计时中）
   | 'streaming' // 首 token 已达，流式中（空闲计时中）
-  | 'aborting' // 中止进行中（三源之一已触发 abort）
   | 'stopped' // 已停止，保留已生成内容
   | 'failed' // 失败，待分类
   | 'retrying' // 退避等待中，将复用同一 request_id
   | 'classified' // 已分级，展示分级文案与按钮
   | 'handoff' // 连续 2 次终态失败，展示人工兜底
   | 'done'; // 正常完成
+// ⚠️ B5 勘误（架构 §4.1）：'aborting' 相位已删除。
+//    实测 reducer 从不产出该相位（ABORT 直接落 stopped/failed/idle），且 catch 对
+//    SILENT_ABORT_REASONS 不 dispatch —— 它是死分支。「中止进行中」由 in-flight
+//    AbortController 表达，不设过渡相位（中止在毫秒级完成，过渡态零用户价值）。
 
 /**
  * 中止原因。三个中止源共用一个 AbortController，仅本字段不同 —— PRD 核心设计。
@@ -59,7 +62,8 @@ export type ChatAction =
   | { type: 'RETRY' }
   | { type: 'DONE' }
   | { type: 'DEGRADED_FRAME' }
-  | { type: 'RESET' };
+  | { type: 'RESET' } // 全量复位（场景切换用，consecutiveFailures 清零）
+  | { type: 'CLEAR_ERROR' }; // 仅清错误态（「换个问法」用，consecutiveFailures 保留）
 
 /** 状态机初值。T04 的 useChatStream 以此为 useReducer 初始状态。 */
 export const INITIAL_CHAT_STATE: ChatState = {

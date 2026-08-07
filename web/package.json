@@ -14,7 +14,9 @@
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:qa": "vitest run --config vitest.qa.config.ts",
-    "size": "node ../scripts/check-bundle-size.mjs"
+    "size": "node ../scripts/check-bundle-size.mjs",
+    "scan:secrets": "node ../scripts/scan-secrets.mjs",
+    "gate": "bash ../scripts/gate.sh"
   },
   "dependencies": {
     "lucide-react": "^0.408.0",

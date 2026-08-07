@@ -102,7 +102,7 @@ declare -a SEC_KEYS=(
   "referrer-policy"
   "permissions-policy"
   "strict-transport-security"
-  "content-security-policy-report-only"
+  "content-security-policy"
 )
 for K in "${SEC_KEYS[@]}"; do
   V="$(printf '%s' "$H_HTML" | grep -i "^$K:" | head -n1)"
@@ -112,9 +112,9 @@ for K in "${SEC_KEYS[@]}"; do
     c_bad "缺少响应头: $K"
   fi
 done
-# CSP 必须是 Report-Only 首发（架构 A6），出现 enforce 版本要告警
-if printf '%s' "$H_HTML" | grep -qi '^content-security-policy:'; then
-  c_warn "检测到 enforce 版 content-security-policy —— 本期约定首发 Report-Only，请确认是否提前 enforce"
+# CSP 已升级 enforce（SEC-2b / B5）：enforce 为期望态；检测到 report-only 要告警
+if printf '%s' "$H_HTML" | grep -qi '^content-security-policy-report-only:'; then
+  c_warn "检测到 report-only 版 content-security-policy —— B5 已升级 enforce，请确认是否误回退"
 fi
 # frame-ancestors 应在 CSP 内（SEC-5）
 if printf '%s' "$H_HTML" | grep -i 'content-security-policy' | grep -q 'frame-ancestors'; then
@@ -230,7 +230,7 @@ echo "==========================================================="
   echo ""
   echo "存在 FAIL 项。若因 CloudBase 不支持 cloudbaserc.json 的对应配置，请到控制台等效补齐："
   echo "  · 静态网站托管 → 缓存配置：/assets/* 长缓存 immutable；*.html 设 no-cache"
-  echo "  · 静态网站托管 → 自定义响应头：补齐六类安全头（CSP 用 Report-Only）"
+  echo "  · 静态网站托管 → 自定义响应头：补齐六类安全头（CSP 用 enforce，见 cloudbaserc.json）"
   echo "  · 压缩配置：MIME 白名单中确保【不含】text/event-stream"
   echo "  · 云函数/网关：确认未对 /api/v1/chat 开启响应缓冲或二次压缩"
   echo "补齐后请把控制台实际配置追加记录到本脚本末尾注释，保持配置-脚本-控制台三件套同步。"

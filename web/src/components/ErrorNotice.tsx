@@ -22,18 +22,24 @@ interface ErrorNoticeProps {
   error: ClassifiedError | null;
   /** 连续终态失败达到阈值（UX-4） */
   showHandoff: boolean;
+  /** B5 UX-8：存在可续接草稿（超时卡的主按钮切换为「继续生成」） */
+  continueAvailable: boolean;
   onRetry: () => void;
   onRephrase: () => void;
   onHandoff: () => void;
+  /** B5 UX-8：续接入口（替换式重生成） */
+  onContinue: () => void;
   scenario: string;
 }
 
 export function ErrorNotice({
   error,
   showHandoff,
+  continueAvailable,
   onRetry,
   onRephrase,
   onHandoff,
+  onContinue,
   scenario,
 }: ErrorNoticeProps) {
   const [remaining, setRemaining] = useState(0);
@@ -55,12 +61,15 @@ export function ErrorNotice({
   let actionButton: React.ReactNode = null;
   if (error) {
     switch (error.action) {
-      case 'retry':
+      case 'retry': {
+        // B5 UX-8：超时卡有草稿时主按钮切换为「继续生成」（走替换式续接，不追加重复）；
+        // 无草稿仍「重试」（append 式）。429 倒计时期间两者都禁用。
+        const isContinue = error.cls === 'timeout' && continueAvailable;
         actionButton = (
           <button
             className="btn btn-primary"
             type="button"
-            onClick={onRetry}
+            onClick={isContinue ? onContinue : onRetry}
             disabled={counting}
           >
             {counting ? (
@@ -68,12 +77,15 @@ export function ErrorNotice({
                 <Icon name="LoaderCircle" size="inline" className="spin" />
                 {remaining} 秒后可继续
               </>
+            ) : isContinue ? (
+              '继续生成'
             ) : (
               '重试'
             )}
           </button>
         );
         break;
+      }
       case 'rephrase':
         actionButton = (
           <button className="btn btn-primary" type="button" onClick={onRephrase}>

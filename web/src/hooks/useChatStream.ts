@@ -33,16 +33,20 @@ import {
   INITIAL_CHAT_STATE,
   SILENT_ABORT_REASONS,
   type AbortReason,
-  type ChatAction,
   type ChatState,
 } from '../types/chat-state';
 import { AppError, streamChat } from '../lib/api';
 import {
   classifyError,
   ErrorCode,
-  isTerminalFailure,
   type ClassifiedError,
 } from '../lib/errors';
+import {
+  chatReducer,
+  excludeMessageIds,
+  findContinueDraft,
+  lastUserBefore,
+} from '../lib/chat-core';
 import { trimHistory } from '../lib/context';
 import { newRequestId } from '../lib/requestId';
 import { track } from '../lib/analytics';
@@ -56,52 +60,12 @@ const STREAM_STALL_THRESHOLD_MS = 8000;
 let seq = 0;
 const nextId = (): string => `m${Date.now()}-${seq++}`;
 
-/** 状态机 reducer（架构 §4.1 ChatAction 全量实现）。 */
-function reducer(state: ChatState, action: ChatAction): ChatState {
-  switch (action.type) {
-    case 'SEND':
-      // 保留 consecutiveFailures（UX-4 连击跨轮累积）与 degradedFrames（每轮清零）
-      return {
-        ...state,
-        phase: 'sending',
-        requestId: action.requestId,
-        retryCount: 0,
-        abortReason: null,
-        error: null,
-        ttfbMs: null,
-        degradedFrames: 0,
-      };
-    case 'FIRST_TOKEN':
-      return { ...state, phase: 'streaming', ttfbMs: action.ttfbMs };
-    case 'ABORT':
-      if (action.reason === 'user') {
-        return { ...state, phase: 'stopped', abortReason: action.reason };
-      }
-      if (SILENT_ABORT_REASONS.includes(action.reason)) {
-        // 卸载/场景切换：静默回 idle，不留错误痕迹
-        return { ...state, phase: 'idle', abortReason: action.reason, requestId: null };
-      }
-      return { ...state, phase: 'failed', abortReason: action.reason };
-    case 'FAIL':
-      return {
-        ...state,
-        phase: 'classified',
-        error: action.error,
-        // 只有「终态失败」才计入连击；用户主动停止不计入（isTerminalFailure）
-        consecutiveFailures:
-          state.consecutiveFailures + (isTerminalFailure(action.error) ? 1 : 0),
-        abortReason: null,
-      };
-    case 'RETRY':
-      return { ...state, phase: 'retrying', retryCount: state.retryCount + 1, error: null };
-    case 'DONE':
-      // 成功会打断「连续失败」连击
-      return { ...state, phase: 'done', error: null, consecutiveFailures: 0 };
-    case 'DEGRADED_FRAME':
-      return { ...state, degradedFrames: state.degradedFrames + 1 };
-    case 'RESET':
-      return { ...INITIAL_CHAT_STATE };
-  }
+/** send 的可选扩展参数（B5 / UX-8）：普通提问传 text 即可，续接才需要 opts。 */
+export interface SendOpts {
+  /** 替换式续接：把该 assistant 气泡标回 streaming，新流首 token 清空其内容重新累积 */
+  replaceAssistantId?: string;
+  /** 不进 history 的消息 id（草稿对 = 草稿气泡 + 其前一条 user，架构 §2.4 注②） */
+  excludeIds?: string[];
 }
 
 export interface UseChatStreamOptions {
@@ -113,21 +77,25 @@ export interface UseChatStreamOptions {
 export interface UseChatStreamResult {
   state: ChatState;
   messages: UIMessage[];
-  /** sending / streaming / retrying / aborting 任一即 true（InputBar 切停止槽位） */
+  /** sending / streaming / retrying 任一即 true（InputBar 切停止槽位） */
   isStreaming: boolean;
   /** 回前台挂起提示（只提示不中止） */
   streamStalled: boolean;
   /** 连续终态失败 ≥2 → 展示人工兜底卡（UX-4） */
   showHandoff: boolean;
-  send: (text: string) => void;
+  /** 存在可续接的草稿且当前不在流式（B5 UX-8：决定「继续生成」入口是否可见） */
+  hasDraft: boolean;
+  send: (text: string, opts?: SendOpts) => void;
   stop: () => void;
   retry: () => void;
   regenerate: () => void;
+  /** B5 UX-8：同一问题新 request_id 全量重发，新流首 token 起替换草稿气泡（replace-on-first-token） */
+  continueGeneration: () => void;
   /** ChatPage 侧消息变更（贴纸 / 反馈 / 记忆等非流式更新） */
   updateMessages: (fn: (prev: UIMessage[]) => UIMessage[]) => void;
   /** 场景切换时重置（ERR-6）：清消息 + 复位状态机 + 掐断旧流 */
   resetForScenario: (scenarioId: string, conversationId: string, messages: UIMessage[]) => void;
-  /** 清空错误态（「换个问法」后） */
+  /** 清空错误态（「换个问法」后；连击保留，B5 修复） */
   clearError: () => void;
 }
 
@@ -136,7 +104,7 @@ export function useChatStream({
   conversationId,
   initialMessages,
 }: UseChatStreamOptions): UseChatStreamResult {
-  const [state, dispatch] = useReducer(reducer, undefined, () => INITIAL_CHAT_STATE);
+  const [state, dispatch] = useReducer(chatReducer, undefined, () => INITIAL_CHAT_STATE);
   const [messages, setMessages] = useState<UIMessage[]>(initialMessages);
   const [streamStalled, setStreamStalled] = useState(false);
 
@@ -174,6 +142,8 @@ export function useChatStream({
   const tokenCountRef = useRef<number>(0);
   const pendingRetryRef = useRef<string | null>(null);
   const handoffTrackedRef = useRef<boolean>(false);
+  /** B5 续接：新流首 token 到达时要清空重建的草稿气泡 id（replace-on-first-token） */
+  const replaceOnFirstTokenRef = useRef<string | null>(null);
 
   const clearTimers = useCallback(() => {
     if (ttfbTimerRef.current !== null) {
@@ -332,6 +302,13 @@ export function useChatStream({
             firstTokenDoneRef.current = true;
             const ttfbMs = Date.now() - sendStartedAtRef.current;
             dispatch({ type: 'FIRST_TOKEN', ttfbMs });
+            // B5 续接（replace-on-first-token）：新流首 token 到达 → 清空草稿气泡内容，
+            // 之后 appendToken 的 rAF 合帧在同一气泡上重新累积（同一气泡原地变完整答案）。
+            if (replaceOnFirstTokenRef.current) {
+              const rid = replaceOnFirstTokenRef.current;
+              replaceOnFirstTokenRef.current = null;
+              setMessages((prev) => prev.map((m) => (m.id === rid ? { ...m, content: '' } : m)));
+            }
             track({
               ev: 'chat_first_token',
               scenario: scenarioIdRef.current,
@@ -374,25 +351,42 @@ export function useChatStream({
   );
 
   const send = useCallback(
-    (text: string) => {
+    (text: string, opts?: SendOpts) => {
       const question = text.trim();
       if (!question || isStreamingRef.current) return;
 
-      // API-2：历史经 trimHistory 截断（8 轮 / 6000 字符，贴纸过滤语义内置）
-      const history = trimHistory(messagesRef.current);
+      // API-2：历史经 trimHistory 截断（8 轮 / 6000 字符，贴纸过滤语义内置）。
+      // B5 续接：先把草稿对（草稿气泡 + 其前一条 user）从消息里剔除，再走既有截断 ——
+      // 否则 stopped 草稿（status='done'）会被送进 history，LLM 看到「同一问题已答过（部分答案）」。
+      const history = trimHistory(excludeMessageIds(messagesRef.current, opts?.excludeIds ?? []));
       const requestId = newRequestId();
 
-      const userMsg: UIMessage = { id: nextId(), role: 'user', content: question, status: 'done' };
-      const assistantId = nextId();
-      const assistantMsg: UIMessage = {
-        id: assistantId,
-        role: 'assistant',
-        content: '',
-        status: 'streaming',
-        feedback: null,
-      };
+      const assistantId = opts?.replaceAssistantId ?? nextId();
 
-      activeAssistantIdRef.current = assistantId;
+      if (opts?.replaceAssistantId) {
+        // 替换式续接（B5 / UX-8）：不 append 新气泡；把草稿气泡标回 streaming（保留内容，清 stopped）。
+        // 新流首 token 到达时由 replaceOnFirstTokenRef 清空内容重新累积（replace-on-first-token），
+        // 视觉上是「它接着生成了」，最终单气泡完整答案、无可见重复（架构 §2.1 方案 B）。
+        replaceOnFirstTokenRef.current = assistantId;
+        activeAssistantIdRef.current = assistantId;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, status: 'streaming', stopped: undefined } : m,
+          ),
+        );
+      } else {
+        const userMsg: UIMessage = { id: nextId(), role: 'user', content: question, status: 'done' };
+        const assistantMsg: UIMessage = {
+          id: assistantId,
+          role: 'assistant',
+          content: '',
+          status: 'streaming',
+          feedback: null,
+        };
+        activeAssistantIdRef.current = assistantId;
+        setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      }
+
       tokenCountRef.current = 0;
       firstTokenDoneRef.current = false;
       sendStartedAtRef.current = Date.now();
@@ -401,7 +395,6 @@ export function useChatStream({
       setStreamStalled(false);
       handoffTrackedRef.current = false;
 
-      setMessages((prev) => [...prev, userMsg, assistantMsg]);
       dispatch({ type: 'SEND', requestId });
       isStreamingRef.current = true;
 
@@ -411,6 +404,10 @@ export function useChatStream({
       startTtfb();
 
       track({ ev: 'chat_send', scenario: scenarioIdRef.current, rid: requestId });
+      if (opts?.replaceAssistantId) {
+        // B5 续接埋点：字段与 chat_send 同构（架构 §2.2 约定 6）
+        track({ ev: 'chat_continue', scenario: scenarioIdRef.current, rid: requestId });
+      }
 
       const req: ChatRequest = {
         scenario_id: scenarioIdRef.current,
@@ -440,7 +437,7 @@ export function useChatStream({
             const reason = abortReasonRef.current;
             if (reason === 'user') {
               handleUserStop();
-            } else if (reason === 'unmount' || reason === 'scenario-change') {
+            } else if (reason !== null && SILENT_ABORT_REASONS.includes(reason)) {
               // 生命周期中止：静默，不写错误态
               activeAssistantIdRef.current = null;
             } else {
@@ -453,6 +450,9 @@ export function useChatStream({
           }
         } finally {
           isStreamingRef.current = false;
+          // B5：首 token 前失败时清掉 replace 标记防残留；
+          // 草稿气泡内容保留（finalizeFailure 只移除空内容气泡），用户不丢已生成内容。
+          replaceOnFirstTokenRef.current = null;
           if (abortRef.current === controller) abortRef.current = null;
         }
       })();
@@ -473,7 +473,35 @@ export function useChatStream({
     abortWith('user');
   }, [abortWith]);
 
+  /**
+   * B5 续接（UX-8 / 架构 §2.4）：同一问题新 request_id 全量重发，替换草稿气泡。
+   * 草稿定位与历史排除都是 chat-core 纯函数（可单测）：
+   *   - findContinueDraft 尾扫最后一个 error/stopped 且 content 非空的 assistant 气泡；
+   *   - lastUserBefore 取草稿前最近一条 user 提问（贴纸除外）作为 message 原文；
+   *   - 草稿对（草稿 + 其 user）从 history 剔除（架构 §2.4 注②）。
+   * 幂等：旧 request_id 在客户端断开时已被服务端 settle('aborted') 释放（idempotency.ts:102-105），
+   * 新 id 正常 claim，不会被 4009 挡住（API-6，服务端零改动）。
+   */
+  const continueGeneration = useCallback(() => {
+    const draft = findContinueDraft(messagesRef.current);
+    if (!draft) return;
+    const userMsg = lastUserBefore(messagesRef.current, draft.id);
+    if (!userMsg) return;
+    send(userMsg.content, {
+      replaceAssistantId: draft.id,
+      excludeIds: [draft.id, userMsg.id],
+    });
+  }, [send]);
+
+  /**
+   * 重试。B5 升级：若存在草稿（error/stopped 的部分气泡）→ 走 continueGeneration（替换式，无重复）；
+   * 无草稿 → 维持 append 式（TTFB 超时空气泡已被移除，append 无重复问题）。
+   */
   const retry = useCallback(() => {
+    if (findContinueDraft(messagesRef.current)) {
+      continueGeneration();
+      return;
+    }
     // 贴纸不算提问（架构 §2.6 约定 4）
     const lastUser = [...messagesRef.current]
       .reverse()
@@ -483,7 +511,7 @@ export function useChatStream({
     } else {
       dispatch({ type: 'RESET' });
     }
-  }, [send]);
+  }, [continueGeneration, send]);
 
   /** 回前台挂起提示的「重新生成」：掐掉死流，摘出本轮未完成的问答，原样重发一次。 */
   const regenerate = useCallback(() => {
@@ -504,7 +532,9 @@ export function useChatStream({
   }, [abortWith]);
 
   const clearError = useCallback(() => {
-    dispatch({ type: 'RESET' });
+    // B5 修复：CLEAR_ERROR 保留 consecutiveFailures（与 SEND 一致）——
+    // 「1 败 + 换个问法 + 1 败」仍能触发 UX-4 人工兜底卡；RESET 仅场景切换用。
+    dispatch({ type: 'CLEAR_ERROR' });
   }, []);
 
   const updateMessages = useCallback((fn: (prev: UIMessage[]) => UIMessage[]) => {
@@ -524,6 +554,7 @@ export function useChatStream({
       }
       tokenBufferRef.current = '';
       activeAssistantIdRef.current = null;
+      replaceOnFirstTokenRef.current = null;
       pendingRetryRef.current = null;
       streamStalledRef.current = false;
       setStreamStalled(false);
@@ -539,8 +570,8 @@ export function useChatStream({
   const isStreaming =
     state.phase === 'sending' ||
     state.phase === 'streaming' ||
-    state.phase === 'retrying' ||
-    state.phase === 'aborting';
+    state.phase === 'retrying';
+  // ⚠️ B5 勘误：无 'aborting' 相位（架构 §4.1）；中止由 in-flight AbortController 表达。
 
   // regenerate 不能直接调 send（send 的守卫此刻还认为在流式）；等相位回落后再发。
   useEffect(() => {
@@ -582,6 +613,7 @@ export function useChatStream({
       clearTimers();
       if (rafRef.current !== null) window.cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
+      replaceOnFirstTokenRef.current = null;
     };
   }, [clearTimers]);
 
@@ -594,16 +626,22 @@ export function useChatStream({
     }
   }, [showHandoff]);
 
+  // B5 UX-8：存在可续接的草稿且当前不在流式 → UI 显示「继续生成」入口。
+  // 续接进行中草稿气泡被标回 streaming，findContinueDraft 自然找不到它，无需额外状态。
+  const hasDraft = !isStreaming && findContinueDraft(messages) !== null;
+
   return {
     state,
     messages,
     isStreaming,
     streamStalled,
     showHandoff,
+    hasDraft,
     send,
     stop,
     retry,
     regenerate,
+    continueGeneration,
     updateMessages,
     resetForScenario,
     clearError,

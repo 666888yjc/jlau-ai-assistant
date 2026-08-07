@@ -1,0 +1,55 @@
+# =============================================================================
+# 吉小农 · GitHub Actions CI（B5 T06 / SEC-7 · MAINT-5）
+#
+# ⚠️ 就绪模板声明：工程当前**无远端**（git remote -v 为空），此文件是「接远端即
+# 生效」的就绪件 —— 推送到任意 GitHub 仓库（含 PR）后自动开始执行，无需再改。
+# 与 scripts/gate.sh 逐步骤镜像，两边必须保持同步（改一边就要改另一边）。
+#
+# 步骤：typecheck → test → test:qa → build → size → scan-secrets → verify-protection
+# 任一失败即任务红灯。test:qa 依赖 jsdom（web/package.json 已声明，npm ci 会装齐）。
+# =============================================================================
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  gate:
+    name: B5 gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web deps
+        run: npm ci --prefix web
+
+      - name: Typecheck (web)
+        run: npm run typecheck --prefix web
+
+      - name: Unit tests (web · node 内核层)
+        run: npm test --prefix web
+
+      - name: QA tests (web · jsdom 套件)
+        run: npm run test:qa --prefix web
+
+      - name: Build (web)
+        run: npm run build --prefix web
+
+      - name: Bundle-size gate (首屏 gzip ≤150KB)
+        run: npm run size --prefix web
+
+      - name: Secret scan (SEC-7)
+        run: node scripts/scan-secrets.mjs
+
+      - name: MOB-5 protection regression
+        run: bash scripts/verify-protection.sh
