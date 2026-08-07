@@ -8,6 +8,13 @@ import { featuresHandler } from './routes/features';
 import { ticketHandler } from './routes/ticket';
 import { rumHandler } from './routes/rum';
 import { errorHandler } from './middleware/errorHandler';
+import {
+  adminFeedbackListHandler,
+  adminKbRefreshHandler,
+  adminLoginHandler,
+  adminLogoutHandler,
+  requireAdmin,
+} from './routes/admin';
 
 /**
  * 仅做装配：挂载中间件 + 端点 + 全局异常兜底。不含任何业务逻辑。
@@ -49,7 +56,8 @@ export function createApp(): Express {
     // 无 Origin 头（同源请求 / curl / 服务端调用）不受白名单影响，保持放行
 
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Ticket, X-Request-Id');
+    // 🔒 保护对象：本行只允许追加 X-Admin-Token（方案 A A-4），不得改动其他头
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Ticket, X-Request-Id, X-Admin-Token');
     res.header('Access-Control-Max-Age', '600');
     if (req.method === 'OPTIONS') {
       res.status(204).end();
@@ -97,6 +105,12 @@ export function createApp(): Express {
   // 基建端点（本次新增）
   app.post('/api/v1/ticket', ticketHandler);
   app.post('/api/v1/rum', rumHandler);
+
+  // 管理端端点（方案 A，A-1~A-4）；除 login 外均过 requireAdmin
+  app.post('/api/v1/admin/login', adminLoginHandler);
+  app.post('/api/v1/admin/logout', requireAdmin, adminLogoutHandler);
+  app.get('/api/v1/admin/feedback', requireAdmin, adminFeedbackListHandler);
+  app.post('/api/v1/admin/kb/refresh', requireAdmin, adminKbRefreshHandler);
 
   app.use(errorHandler);
 

@@ -4,6 +4,8 @@ import type {
   CreateFeedbackInput,
   CreateHandoffInput,
   Feature,
+  FeedbackFilter,
+  FeedbackListResult,
   FeedbackRecord,
   HandoffRecord,
   Scenario,
@@ -92,9 +94,41 @@ export class JsonStore implements Store {
       scenario_id: input.scenario_id,
       created_at: new Date().toISOString(),
     };
+    // A-2：仅在存在快照时落库（不传则字段缺失，与旧版文件结构逐字节一致）
+    if (input.snapshot !== undefined && input.snapshot !== null) {
+      rec.snapshot = input.snapshot;
+    }
     this.feedback.push(rec);
     this.persist('feedback.json', this.feedback);
     return { ...rec };
+  }
+
+  /**
+   * A-1/A-5/A-6/A-7 管理端反馈列表。
+   * 内存过滤（type/scenario_id 精确、q 对 note includes 不区分大小写）→
+   * created_at 倒序 → 分页切片。items **含 `_id`**，与 CloudBaseStore 输出同构（AC-A1.5）。
+   */
+  async listFeedback(filter: FeedbackFilter = {}): Promise<FeedbackListResult> {
+    const { type, scenario_id, q } = filter;
+    const page = filter.page && filter.page >= 1 ? Math.floor(filter.page) : 1;
+    const pageSize =
+      filter.pageSize && filter.pageSize >= 1 ? Math.floor(filter.pageSize) : 20;
+
+    let list = this.feedback.slice();
+    if (type !== undefined) list = list.filter((f) => f.type === type);
+    if (scenario_id !== undefined) list = list.filter((f) => f.scenario_id === scenario_id);
+    if (q !== undefined && q.trim() !== '') {
+      const needle = q.trim().toLowerCase();
+      list = list.filter((f) => (f.note ?? '').toLowerCase().includes(needle));
+    }
+
+    // 倒序：created_at 是 ISO-8601 UTC 字符串，字典序即时间序
+    list.sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
+
+    const total = list.length;
+    const start = (page - 1) * pageSize;
+    const items = list.slice(start, start + pageSize).map((f) => ({ ...f }));
+    return { items, total, page, pageSize };
   }
 
   async createHandoff(input: CreateHandoffInput): Promise<HandoffRecord> {

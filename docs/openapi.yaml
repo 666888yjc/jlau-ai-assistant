@@ -306,6 +306,200 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  # ================= 反馈管理后台（方案 A，A-1~A-4） =================
+  # 除 login 外均需请求头 X-Admin-Token: <av1.*>；未配置 ADMIN_PASSWORD 时一律 503 code 4011。
+
+  /api/v1/admin/login:
+    post:
+      summary: 管理员登录（校验 ADMIN_PASSWORD，签发会话令牌）
+      description: |
+        匿名可调（自身带登录失败限流：同 IP 15min 失败 ≥5 次 → 429 code 4290 + Retry-After）。
+        未配置 ADMIN_PASSWORD → 503 code 4011「管理后台未启用」，无空密码放行路径。
+        响应 data.token 为 av1 前缀 HMAC 会话令牌，随后续请求经 X-Admin-Token 头携带。
+      operationId: adminLogin
+      tags:
+        - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+                  description: ADMIN_PASSWORD 环境变量值
+                  example: s3cret
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseAdminLogin'
+              examples:
+                ok:
+                  value:
+                    code: 0
+                    data:
+                      token: av1.1789000000000.nQ3fAbCdEfGh.abcdefghijklmnopqrstuvwxyz0123456789
+                      expires_at: 1789000000000
+                    message: ok
+        '401':
+          description: 密码错误（code=4013）
+          $ref: '#/components/responses/AdminUnauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/AdminDisabled'
+
+  /api/v1/admin/logout:
+    post:
+      summary: 管理员登出（轻量对称端点）
+      description: |
+        需有效管理员令牌。服务端不维护全局黑名单（靠 TTL），退出 = 前端清除本地令牌；
+        本端点仅返回 { ok: true } 供客户端对称调用。
+      operationId: adminLogout
+      tags:
+        - admin
+      responses:
+        '200':
+          description: 登出成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - code
+                  - data
+                  - message
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  data:
+                    type: object
+                    properties:
+                      ok:
+                        type: boolean
+                        example: true
+                  message:
+                    type: string
+                    example: ok
+        '401':
+          $ref: '#/components/responses/AdminUnauthorized'
+        '503':
+          $ref: '#/components/responses/AdminDisabled'
+
+  /api/v1/admin/feedback:
+    get:
+      summary: 反馈列表（倒序 + 筛选 + 分页）
+      description: |
+        需有效管理员令牌。支持 type / scenario_id / q（note 模糊匹配，不区分大小写）/
+        page / pageSize（默认 20）。返回 items 含 `_id`（两 store 同构），
+        created_at 倒序（新→旧）。旧记录无 snapshot 字段（升级前数据）。
+      operationId: adminListFeedback
+      tags:
+        - admin
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [helpful, reported]
+          description: 反馈类型筛选
+        - name: scenario_id
+          in: query
+          schema:
+            type: string
+          description: 场景标识筛选
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: note 模糊搜索
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: 页码（1-based）
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
+          description: 每页条数
+      responses:
+        '200':
+          description: 反馈列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseAdminFeedbackList'
+              examples:
+                ok:
+                  value:
+                    code: 0
+                    data:
+                      items:
+                        - _id: fb-5c1d
+                          message_id: m-8f3a
+                          type: reported
+                          note: 缴费入口写错了
+                          scenario_id: baodao
+                          created_at: '2026-08-07T02:30:00.000Z'
+                          snapshot:
+                            question: 报到要交多少钱？
+                            answer: 学费需在报到时现场缴纳。
+                      total: 1
+                      page: 1
+                      pageSize: 20
+                    message: ok
+        '400':
+          description: type 非法（code=4001）
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/AdminUnauthorized'
+        '503':
+          $ref: '#/components/responses/AdminDisabled'
+
+  /api/v1/admin/kb/refresh:
+    post:
+      summary: 知识库热刷新（清缓存并强制重读磁盘）
+      description: |
+        需有效管理员令牌。清空 server/src/kb/retrieve.ts 模块缓存并立即重读一次；
+        成功返回 { cleared: true, doc_count }；目录不存在 / 读取失败返回
+        500 code 5002 明确文案（不静默）。
+      operationId: adminRefreshKb
+      tags:
+        - admin
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseAdminKbRefresh'
+              examples:
+                ok:
+                  value:
+                    code: 0
+                    data:
+                      cleared: true
+                      doc_count: 12
+                    message: ok
+        '401':
+          $ref: '#/components/responses/AdminUnauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/AdminDisabled'
+
 components:
   schemas:
     # ---------- 请求体 ----------
@@ -378,6 +572,26 @@ components:
           description: 报错补充说明（可选）
           maxLength: 500
           example: 来源链接已失效
+        snapshot:
+          type: object
+          nullable: true
+          description: |
+            问答快照（方案 A A-2，可选）。仅「报错」时由前端携带：
+            该条 AI 回答 + 其前一条用户提问。不传/为 null 时行为与旧版一致。
+          properties:
+            question:
+              type: string
+              description: 用户提问（≤2000 字符，超限返 400 code 4004）
+              maxLength: 2000
+              example: 报到要交多少钱？
+            answer:
+              type: string
+              description: AI 回答（≤20000 字符，超限返 400 code 4004）
+              maxLength: 20000
+              example: 学费需在报到时现场缴纳。
+          required:
+            - question
+            - answer
 
     HumanHandoffRequest:
       type: object
@@ -602,6 +816,136 @@ components:
           type: string
           example: ok
 
+    ApiResponseAdminLogin:
+      type: object
+      description: 统一响应结构（admin login）
+      required:
+        - code
+        - data
+        - message
+      properties:
+        code:
+          type: integer
+          example: 0
+        data:
+          type: object
+          nullable: true
+          properties:
+            token:
+              type: string
+              description: av1 前缀 HMAC 会话令牌（请求头 X-Admin-Token 携带）
+              example: av1.1789000000000.nQ3fAbCdEfGh.abcdefghijklmnopqrstuvwxyz0123456789
+            expires_at:
+              type: integer
+              description: 过期时间戳（毫秒）
+              example: 1789000000000
+        message:
+          type: string
+          example: ok
+
+    AdminFeedbackItem:
+      type: object
+      description: 管理端反馈列表项（两 store 同构，必含 _id）
+      required:
+        - _id
+        - message_id
+        - type
+        - note
+        - scenario_id
+        - created_at
+      properties:
+        _id:
+          type: string
+          example: fb-5c1d
+        message_id:
+          type: string
+          example: m-8f3a
+        type:
+          type: string
+          enum:
+            - helpful
+            - reported
+        note:
+          type: string
+          nullable: true
+          example: 缴费入口写错了
+        scenario_id:
+          type: string
+          example: baodao
+        created_at:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC
+          example: '2026-08-07T02:30:00.000Z'
+        snapshot:
+          type: object
+          nullable: true
+          description: 问答快照；旧记录（升级前）缺失该字段
+          properties:
+            question:
+              type: string
+              example: 报到要交多少钱？
+            answer:
+              type: string
+              example: 学费需在报到时现场缴纳。
+
+    ApiResponseAdminFeedbackList:
+      type: object
+      description: 统一响应结构（admin 反馈列表）
+      required:
+        - code
+        - data
+        - message
+      properties:
+        code:
+          type: integer
+          example: 0
+        data:
+          type: object
+          nullable: true
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminFeedbackItem'
+            total:
+              type: integer
+              example: 1
+            page:
+              type: integer
+              example: 1
+            pageSize:
+              type: integer
+              example: 20
+        message:
+          type: string
+          example: ok
+
+    ApiResponseAdminKbRefresh:
+      type: object
+      description: 统一响应结构（admin kb refresh）
+      required:
+        - code
+        - data
+        - message
+      properties:
+        code:
+          type: integer
+          example: 0
+        data:
+          type: object
+          nullable: true
+          properties:
+            cleared:
+              type: boolean
+              example: true
+            doc_count:
+              type: integer
+              example: 12
+        message:
+          type: string
+          example: ok
+
     ApiResponseHandoff:
       type: object
       description: 统一响应结构（human-handoff）
@@ -673,7 +1017,7 @@ components:
 
   responses:
     BadRequest:
-      description: 请求参数非法或缺失（code=4001/4002/4003）
+      description: 请求参数非法或缺失（code=4001/4002/4003/4004）
       content:
         application/json:
           schema:
@@ -689,12 +1033,56 @@ components:
                   - 4001
                   - 4002
                   - 4003
+                  - 4004
               data:
                 type: object
                 nullable: true
               message:
                 type: string
                 example: 缺少必填字段 scenario_id
+    AdminUnauthorized:
+      description: 未登录 / 管理员令牌无效或过期（code=4012）；密码错误（code=4013）
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - code
+              - data
+              - message
+            properties:
+              code:
+                type: integer
+                enum:
+                  - 4012
+                  - 4013
+              data:
+                type: object
+                nullable: true
+              message:
+                type: string
+                example: 登录已失效，请重新登录
+    AdminDisabled:
+      description: 管理后台未启用（未配置 ADMIN_PASSWORD，code=4011）
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - code
+              - data
+              - message
+            properties:
+              code:
+                type: integer
+                enum:
+                  - 4011
+              data:
+                type: object
+                nullable: true
+              message:
+                type: string
+                example: 管理后台未启用
     TooManyRequests:
       description: 触发速率限制（code=4290）
       content:

@@ -13,6 +13,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { NewContentPill } from '../components/NewContentPill';
 import { getFeatures, postFeedback } from '../lib/api';
+import { buildFeedbackSnapshot } from '../lib/feedback';
 import { addMemory, buildGreeting, isMemoryTextTruncated, readMemory, readProfile } from '../lib/profile';
 import { shouldRenderErrorCard } from '../lib/errors';
 import { trimStoredMessages } from '../lib/context';
@@ -425,12 +426,17 @@ export function ChatPage() {
   const handleFeedback = useCallback(
     (msgId: string, type: 'helpful' | 'reported') => {
       updateMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, feedback: type } : m)));
-      postFeedback({ message_id: msgId, type }).catch((e) => {
+      // A-2（方案 A）：仅「报错」携带问答快照（该条 AI 回答 + 其前一条用户提问）；
+      // 「有帮助」不带（AC-A2.1）。快照构建/截断是纯函数（lib/feedback.ts），
+      // 前端正常路径永不触发服务端 400（AC-A2.4）。
+      const snapshot = type === 'reported' ? buildFeedbackSnapshot(messages, msgId) : undefined;
+      postFeedback({ message_id: msgId, type, snapshot: snapshot ?? undefined }).catch((e) => {
         // 反馈失败不阻断对话，但不再纯静默（MAINT-4）
         console.warn('[feedback] 上报失败:', e instanceof Error ? e.message : String(e));
       });
     },
-    [updateMessages],
+    // 增加 messages 依赖：保证点击时快照取自当前消息态（架构 §2.4.3）
+    [updateMessages, messages],
   );
 
   const goHandoff = useCallback(() => navigate('/handoff'), [navigate]);

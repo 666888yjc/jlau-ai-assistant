@@ -12,10 +12,18 @@ export const ErrorCode = {
   INVALID_REQUEST: 4001,
   SCENARIO_NOT_FOUND: 4002,
   INVALID_FEEDBACK_TYPE: 4003,
+  /** A-2：快照超限（question>2000 / answer>20000） */
+  SNAPSHOT_TOO_LONG: 4004,
   /** 幂等键重复：同一 request_id 正在处理或刚处理完（API-1） */
   DUPLICATE_REQUEST: 4009,
   /** 票据无效 / 过期（SEC-1） */
   TICKET_INVALID: 4010,
+  /** A-4：管理后台未启用（未配置 ADMIN_PASSWORD）——故意放 4xxx 而非 5xxx，见 httpStatusFor 注 */
+  ADMIN_DISABLED: 4011,
+  /** A-4：未登录 / 管理员令牌无效或过期 */
+  ADMIN_UNAUTHORIZED: 4012,
+  /** A-4：密码错误 */
+  ADMIN_PASSWORD_WRONG: 4013,
   RATE_LIMITED: 4290,
   UPSTREAM_UNAVAILABLE: 5001,
   INTERNAL_ERROR: 5002,
@@ -32,12 +40,26 @@ export class ApiError extends Error {
 
 /** 错误码 -> HTTP 状态码。 */
 export function httpStatusFor(code: number): number {
-  if (code === ErrorCode.INVALID_REQUEST || code === ErrorCode.SCENARIO_NOT_FOUND || code === ErrorCode.INVALID_FEEDBACK_TYPE) {
+  if (
+    code === ErrorCode.INVALID_REQUEST ||
+    code === ErrorCode.SCENARIO_NOT_FOUND ||
+    code === ErrorCode.INVALID_FEEDBACK_TYPE ||
+    code === ErrorCode.SNAPSHOT_TOO_LONG
+  ) {
     return 400;
   }
-  if (code === ErrorCode.TICKET_INVALID) return 401;
+  if (code === ErrorCode.TICKET_INVALID || code === ErrorCode.ADMIN_UNAUTHORIZED || code === ErrorCode.ADMIN_PASSWORD_WRONG) {
+    return 401;
+  }
   if (code === ErrorCode.DUPLICATE_REQUEST) return 409;
   if (code === ErrorCode.RATE_LIMITED) return 429;
+  /**
+   * ADMIN_DISABLED 故意映射 HTTP 503 而非 4xx（架构 §2.3.3 / §9 D6）：
+   * 语义是「服务当前不可用（后台未启用）」，且前端 classifyError 对 5xxx 的默认
+   * 行为是「可重试」——但管理页有专属文案映射（lib/admin.ts），不依赖 classifyError，
+   * 因此不会误导。放 4xxx 码值则让任何「按码段统计」的监控都不会把未启用误算成上游故障。
+   */
+  if (code === ErrorCode.ADMIN_DISABLED) return 503;
   return 500;
 }
 

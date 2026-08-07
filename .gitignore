@@ -19,3 +19,5 @@ dist_stale_*/
 dist_final_verify/
 # B5 验证构建输出（沙箱删除守卫绕过用，不进版本库）
 dist_b5_verify/
+# 方案 A 验证构建输出（沙箱删除守卫绕过用，不进版本库）
+dist_admin_verify/

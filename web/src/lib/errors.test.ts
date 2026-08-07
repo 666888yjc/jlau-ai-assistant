@@ -31,6 +31,13 @@ describe('errors: 码值与服务端对齐', () => {
     expect(ErrorCode.TICKET_INVALID).toBe(4010);
   });
 
+  it('2b. 反馈管理后台（方案 A）新增码值与 server 对齐', () => {
+    expect(ErrorCode.SNAPSHOT_TOO_LONG).toBe(4004);
+    expect(ErrorCode.ADMIN_DISABLED).toBe(4011);
+    expect(ErrorCode.ADMIN_UNAUTHORIZED).toBe(4012);
+    expect(ErrorCode.ADMIN_PASSWORD_WRONG).toBe(4013);
+  });
+
   it('3. 前端传输层码值全部落在 1xxx 分段', () => {
     const frontend = [
       ErrorCode.NETWORK_OFFLINE,

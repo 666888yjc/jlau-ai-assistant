@@ -39,6 +39,7 @@ const LostFoundModulePage = lazy(() =>
 const GpaModulePage = lazy(() =>
   import('./pages/modules/GpaModulePage').then((m) => ({ default: m.GpaModulePage })),
 );
+const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })));
 
 // 模块 id → 页面组件的扁平查找表（架构 §2.5 ADR-3 方案 A）。
 // 放在这里而不是 registry.ts 里，是为了让 registry 保持「纯数据」——
@@ -91,6 +92,8 @@ export function App() {
           <Route path="/modules" element={<ModulesPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
+          {/* 反馈管理后台（方案 A）：lazy 不进首屏（LOAD-4 预算保护） */}
+          <Route path="/admin" element={<AdminPage />} />
 
           {MODULE_REGISTRY.map((m) => {
             const Page = MODULE_PAGES[m.id];

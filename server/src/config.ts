@@ -116,6 +116,33 @@ export const config = {
     /** LRU 容量上限，防止内存无限增长 */
     maxEntries: numEnv(process.env.IDEMPOTENCY_MAX_ENTRIES, 5000),
   },
+
+  /**
+   * 反馈管理后台（方案 A，A-1~A-4）。
+   *
+   * ⚠️ 503 门禁的 `adminEnabled()` 刻意**不在**这里读 `ADMIN_PASSWORD`
+   * （见 routes/admin.ts）：门禁正确性依赖「当前是否配置」这一事实，
+   * 运行时读取最稳，且单测可直接 set/delete 环境变量无需重建单例（架构 §2.1 C3 / §9 D1）。
+   * 本段只放「数值型可调项」。
+   */
+  admin: {
+    /** 管理员会话令牌有效期，默认 12h（Q-A2 / D-A6） */
+    sessionTtlMs: numEnv(process.env.ADMIN_SESSION_TTL_MS, 12 * 60 * 60_000),
+    /** 登录失败锁定窗口，默认 15min（Q-A3） */
+    loginFailWindowMs: numEnv(process.env.ADMIN_LOGIN_FAIL_WINDOW_MS, 15 * 60_000),
+    /** 窗口内失败达到该次数即锁定（Q-A3：≥5 次） */
+    loginFailMax: numEnv(process.env.ADMIN_LOGIN_FAIL_MAX, 5),
+    /** 快照 question 上限（Q-A5，与 web/src/lib/config.ts SNAPSHOT_QUESTION_MAX 同步） */
+    snapshotQuestionMax: 2000,
+    /** 快照 answer 上限（Q-A5，与 web SNAPSHOT_ANSWER_MAX 同步） */
+    snapshotAnswerMax: 20000,
+    /**
+     * admin 会话独立签名密钥（留位，架构 §9 D2）。
+     * 默认空 = 回落 TICKET_SECRET（复用同一密钥 + 前缀 av1 域隔离，不新增环境变量）。
+     * 未来若需与匿名票据彻底隔离，注入该值即可。
+     */
+    tokenSecret: process.env.ADMIN_TOKEN_SECRET || '',
+  },
 };
 
 export type AppConfig = typeof config;

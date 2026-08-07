@@ -81,6 +81,51 @@ export interface FeedbackRequest {
   message_id: string;
   type: 'helpful' | 'reported';
   note?: string;
+  /**
+   * A-2 问答快照（仅「报错」携带；「有帮助」不带）。
+   * question ≤ 2000 字符、answer ≤ 20000 字符（前端提交前截断，服务端防御校验）。
+   */
+  snapshot?: { question: string; answer: string };
+}
+
+// ---- 反馈管理后台（方案 A，A-1~A-4）----
+
+/** 管理员会话令牌（av1.<exp>.<nonce>.<hmac>）。 */
+export interface AdminLoginResult {
+  token: string;
+  expires_at: number;
+}
+
+/** 管理端反馈列表项（两 store 同构，必含 _id）。 */
+export interface AdminFeedbackItem {
+  _id: string;
+  message_id: string;
+  type: 'helpful' | 'reported';
+  note: string | null;
+  scenario_id: string;
+  created_at: string;
+  /** 旧记录天然缺失（升级前数据） */
+  snapshot?: { question: string; answer: string } | null;
+}
+
+export interface AdminFeedbackListResult {
+  items: AdminFeedbackItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface AdminFeedbackListParams {
+  type?: 'helpful' | 'reported';
+  scenario_id?: string;
+  q?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface AdminKbRefreshResult {
+  cleared: boolean;
+  doc_count: number;
 }
 
 export interface HumanHandoffRequest {

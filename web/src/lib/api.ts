@@ -1,4 +1,8 @@
 import type {
+  AdminFeedbackListParams,
+  AdminFeedbackListResult,
+  AdminKbRefreshResult,
+  AdminLoginResult,
   ApiResponse,
   ChatRequest,
   FeatureItem,
@@ -10,6 +14,7 @@ import type {
 import { createParser, feed, finish } from './sse';
 import { backoffMs, parseRetryAfter, shouldRetry } from './retry';
 import { classifyError, ErrorCode, type ClassifiedError } from './errors';
+import { getAdminToken } from './admin';
 import { newRequestId } from './requestId';
 import { MAX_RETRY } from './config';
 
@@ -54,6 +59,92 @@ async function jsonPost<T>(path: string, body: unknown): Promise<ApiResponse<T>>
 
 export async function postFeedback(req: FeedbackRequest): Promise<ApiResponse<unknown>> {
   return jsonPost('/feedback', req);
+}
+
+// ---------------------------------------------------------------------------
+// 反馈管理后台（方案 A，A-1~A-4）
+// ---------------------------------------------------------------------------
+
+/**
+ * 管理端 API 错误。携带业务 code / HTTP 状态 / Retry-After 秒数，
+ * 由 AdminPage 经 `adminErrorMessage()` 映射为专属文案（不散落字面量）。
+ */
+export class AdminApiError extends Error {
+  readonly code: number;
+  readonly httpStatus: number;
+  readonly retryAfterSec?: number;
+
+  constructor(code: number, httpStatus: number, message: string, retryAfterSec?: number) {
+    super(message);
+    this.name = 'AdminApiError';
+    this.code = code;
+    this.httpStatus = httpStatus;
+    if (retryAfterSec !== undefined) this.retryAfterSec = retryAfterSec;
+  }
+}
+
+/** 解析非 2xx 响应为 AdminApiError（优先取业务码，429 补 Retry-After）。 */
+async function throwAdminError(res: Response): Promise<never> {
+  let code = 0;
+  let message = '';
+  try {
+    const j = (await res.json()) as { code?: number; message?: string };
+    code = typeof j.code === 'number' ? j.code : 0;
+    message = typeof j.message === 'string' ? j.message : '';
+  } catch {
+    /* 响应体非 JSON 时按状态码兜底 */
+  }
+  const retryAfterSec = parseRetryAfter(res.headers.get('Retry-After'), Date.now());
+  throw new AdminApiError(code || res.status, res.status, message || res.statusText, retryAfterSec);
+}
+
+/** 带可选 X-Admin-Token 头的 GET。 */
+async function adminGet<T>(path: string): Promise<ApiResponse<T>> {
+  const headers: Record<string, string> = {};
+  const token = getAdminToken();
+  if (token) headers['X-Admin-Token'] = token;
+  const res = await fetch(BASE + path, { headers });
+  if (!res.ok) return throwAdminError(res);
+  return (await res.json()) as ApiResponse<T>;
+}
+
+/** 带可选 X-Admin-Token 头的 POST。 */
+async function adminPost<T>(path: string, body: unknown): Promise<ApiResponse<T>> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getAdminToken();
+  if (token) headers['X-Admin-Token'] = token;
+  const res = await fetch(BASE + path, { method: 'POST', headers, body: JSON.stringify(body) });
+  if (!res.ok) return throwAdminError(res);
+  return (await res.json()) as ApiResponse<T>;
+}
+
+/** A-4 登录：校验 ADMIN_PASSWORD，签发会话令牌（匿名可调）。 */
+export async function adminLogin(password: string): Promise<ApiResponse<AdminLoginResult>> {
+  return adminPost<AdminLoginResult>('/admin/login', { password });
+}
+
+/** A-4 登出（轻量对称端点；服务端不维护全局黑名单，靠 TTL）。 */
+export async function adminLogout(): Promise<ApiResponse<{ ok: boolean }>> {
+  return adminPost<{ ok: boolean }>('/admin/logout', {});
+}
+
+/** A-1/A-5/A-6/A-7 反馈列表（倒序 + 筛选 + 分页）。 */
+export async function adminListFeedback(
+  params: AdminFeedbackListParams,
+): Promise<ApiResponse<AdminFeedbackListResult>> {
+  const qs = new URLSearchParams();
+  if (params.type !== undefined) qs.set('type', params.type);
+  if (params.scenario_id !== undefined) qs.set('scenario_id', params.scenario_id);
+  if (params.q !== undefined && params.q.trim() !== '') qs.set('q', params.q.trim());
+  if (params.page !== undefined) qs.set('page', String(params.page));
+  if (params.pageSize !== undefined) qs.set('pageSize', String(params.pageSize));
+  const suffix = qs.toString();
+  return adminGet<AdminFeedbackListResult>('/admin/feedback' + (suffix ? `?${suffix}` : ''));
+}
+
+/** A-3 知识库热刷新。 */
+export async function adminRefreshKb(): Promise<ApiResponse<AdminKbRefreshResult>> {
+  return adminPost<AdminKbRefreshResult>('/admin/kb/refresh', {});
 }
 
 export async function postHumanHandoff(

@@ -55,6 +55,44 @@ function loadDocs(): KbDoc[] {
   return cache;
 }
 
+/**
+ * 清空模块级缓存（方案 A A-3）。下一次 `loadDocs()` 强制重读磁盘。
+ *
+ * 🔒 保护对象：`loadDocs()` 本体（含缓存命中与目录缺失=空上下文）**一字不改**；
+ * 本方法只负责把 `cache` 置 null，chat 路径的既有行为完全不受影响。
+ */
+export function clearKbCache(): void {
+  cache = null;
+}
+
+export interface KbReloadResult {
+  ok: boolean;
+  docCount: number;
+  /** ok=false 时的显式错误原因（AC-A3.4 不静默） */
+  error?: string;
+}
+
+/**
+ * 清缓存并立即重读一次（方案 A A-3）。
+ *
+ * 与 chat 路径的区别：`reloadKb` 在调用 `loadDocs` 前**自行**做目录存在性检查，
+ * 以给出明确错误（目录缺失 → `{ok:false, error}`），而不是像 chat 那样
+ * 静默返回空上下文。读取抛错同样显式返回，绝不吞异常（AC-A3.4）。
+ */
+export function reloadKb(): KbReloadResult {
+  cache = null;
+  try {
+    if (!existsSync(config.kbDir)) {
+      return { ok: false, docCount: 0, error: `知识库目录不存在: ${config.kbDir}` };
+    }
+    const docs = loadDocs();
+    return { ok: true, docCount: docs.length };
+  } catch (e) {
+    cache = null;
+    return { ok: false, docCount: 0, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 function parseDoc(path: string): KbDoc {
   const raw = readFileSync(path, 'utf-8');
   const file = path.split(/[\\/]/).pop() || path;

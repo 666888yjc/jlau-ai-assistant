@@ -174,3 +174,86 @@ export function authorize(req: Request, nowMs: number = Date.now()): AuthDecisio
 
   return { reject: enforcing && !result.ok, ticketId: result.ticketId, result };
 }
+
+// ---------------------------------------------------------------------------
+// 管理员会话令牌（方案 A A-4，架构 §2.3.2）
+// ---------------------------------------------------------------------------
+//
+// 与匿名票据同构、域隔离：
+//   av1.<expMs>.<nonce>.<hmacBase64Url>
+// 签名内容 = "av1.<expMs>.<nonce>"，算法 HMAC-SHA256。
+// 密钥 = config.admin.tokenSecret（留位，默认空）→ TICKET_SECRET（复用 secretOf()）。
+// 前缀 av1 使签名内容与匿名票据 v1 域隔离：同一密钥下两类令牌互不通用。
+//
+// 关键差异（架构 §2.3.2）：匿名票据受 isEnforcing() 灰度门控（默认不拦截）；
+// admin 会话**无条件强制**——只要 adminEnabled() 且令牌有效即放行，无效即 401。
+// 不存在灰度期（管理端鉴权不做灰度）。
+
+const ADMIN_PREFIX = 'av1';
+
+export type AdminVerifyFailure = 'missing' | 'malformed' | 'bad-signature' | 'expired';
+
+export interface AdminVerifyResult {
+  ok: boolean;
+  /** 会话 nonce，校验失败为 null */
+  sessionId: string | null;
+  reason?: AdminVerifyFailure;
+}
+
+/** admin 会话专用密钥：config.admin.tokenSecret 留位，默认回落 TICKET_SECRET。 */
+function adminSecretOf(): string {
+  if (config.admin.tokenSecret) return config.admin.tokenSecret;
+  return secretOf();
+}
+
+/**
+ * 签发管理员会话令牌（A-4）。
+ *
+ * @param nowMs 当前时间戳，显式传入便于单测
+ */
+export function issueAdminSession(nowMs: number = Date.now()): IssuedTicket {
+  const expiresAt = nowMs + config.admin.sessionTtlMs;
+  const nonce = randomBytes(9).toString('base64url'); // 12 字符，与匿名票据同款
+  const payload = `${ADMIN_PREFIX}.${expiresAt}.${nonce}`;
+  return { ticket: `${payload}.${signWith(adminSecretOf(), payload)}`, expiresAt };
+}
+
+/**
+ * 校验管理员会话令牌（A-4）。**无条件判定**：无效即 401，不做灰度放行。
+ */
+export function verifyAdminSession(raw: string | null | undefined, nowMs: number = Date.now()): AdminVerifyResult {
+  if (!raw || raw.trim() === '') return { ok: false, sessionId: null, reason: 'missing' };
+
+  const parts = raw.trim().split('.');
+  if (parts.length !== 4 || parts[0] !== ADMIN_PREFIX) {
+    return { ok: false, sessionId: null, reason: 'malformed' };
+  }
+
+  const [, expStr, nonce, mac] = parts;
+  const exp = Number(expStr);
+  if (!Number.isFinite(exp) || nonce === '' || mac === '') {
+    return { ok: false, sessionId: null, reason: 'malformed' };
+  }
+
+  const payload = `${ADMIN_PREFIX}.${expStr}.${nonce}`;
+  if (!safeEqual(mac, signWith(adminSecretOf(), payload))) {
+    return { ok: false, sessionId: null, reason: 'bad-signature' };
+  }
+
+  // 先验签再验时间（与匿名票据同一理由：防止用伪造票据探测服务端时钟）
+  if (exp <= nowMs) return { ok: false, sessionId: nonce, reason: 'expired' };
+
+  return { ok: true, sessionId: nonce };
+}
+
+/** 从请求头提取管理员令牌（X-Admin-Token）。 */
+export function extractAdminToken(req: Request): string | null {
+  const h = req.headers['x-admin-token'];
+  if (typeof h === 'string' && h.trim() !== '') return h.trim();
+  return null;
+}
+
+/** 用指定密钥签名（admin 会话专用；匿名票据走上面的 sign() 保持既有行为不变）。 */
+function signWith(secret: string, payload: string): string {
+  return b64url(createHmac('sha256', secret).update(payload).digest());
+}

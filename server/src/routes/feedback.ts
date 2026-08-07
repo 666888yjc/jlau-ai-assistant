@@ -31,6 +31,8 @@ export async function feedbackHandler(req: Request, res: Response): Promise<void
     type: v.value.type,
     note: v.value.note,
     scenario_id: scenarioId,
+    // A-2：透传快照。不传时 undefined，与改造前行为逐字节一致（AC-A2.2）
+    snapshot: v.value.snapshot ?? undefined,
   });
 
   ok(res, { id: rec._id, message_id: rec.message_id, type: rec.type });

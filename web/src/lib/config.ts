@@ -76,3 +76,19 @@ export const RUM_BATCH_SIZE = 10;
 
 /** 埋点采样率，0~1。1 = 全量上报。 */
 export const RUM_SAMPLE_RATE = 1;
+
+// ---------------------------------------------------------------------------
+// 反馈管理后台（方案 A，A-2/A-6）
+// ---------------------------------------------------------------------------
+
+/** 快照 question 上限（Q-A5，与 server config.admin.snapshotQuestionMax 同步）。 */
+export const SNAPSHOT_QUESTION_MAX = 2000;
+
+/** 快照 answer 上限（Q-A5，与 server config.admin.snapshotAnswerMax 同步）。 */
+export const SNAPSHOT_ANSWER_MAX = 20000;
+
+/** admin 会话令牌 localStorage 键（A-4）。 */
+export const ADMIN_TOKEN_KEY = 'jxn-admin-token';
+
+/** 管理端列表分页大小（Q-A4）。 */
+export const ADMIN_LIST_PAGE_SIZE = 20;

@@ -1,5 +1,7 @@
 import { ErrorCode } from '../errors';
+import { config } from '../config';
 import type { ChatInput } from '../coze/client';
+import type { FeedbackSnapshot } from '../types';
 
 type Fail = { ok: false; code: number; message: string };
 
@@ -53,13 +55,15 @@ export interface FeedbackValue {
   type: 'helpful' | 'reported';
   note: string | null;
   scenario_id?: string;
+  /** A-2：可选快照；不传/传 null 时旧路径逐字节不变（AC-A2.2） */
+  snapshot?: FeedbackSnapshot | null;
 }
 
 /** POST /api/v1/feedback 请求体校验（openapi FeedbackRequest）。 */
 export function validateFeedbackBody(body: unknown): { ok: true; value: FeedbackValue } | Fail {
   if (!isObject(body)) return fail(ErrorCode.INVALID_REQUEST, '请求体必须为 JSON 对象');
 
-  const { message_id, type, note, scenario_id } = body;
+  const { message_id, type, note, scenario_id, snapshot } = body;
 
   if (typeof message_id !== 'string' || message_id.trim() === '') {
     return fail(ErrorCode.INVALID_REQUEST, '缺少必填字段 message_id');
@@ -84,7 +88,36 @@ export function validateFeedbackBody(body: unknown): { ok: true; value: Feedback
     safeScenario = scenario_id;
   }
 
-  return { ok: true, value: { message_id, type, note: safeNote, scenario_id: safeScenario } };
+  // —— A-2 快照分支（后置追加，不改变上面既有字段的判定顺序与结果；架构 §7.4）——
+  // 仅在「存在且非 null」时校验；缺省 → safeSnapshot 保持 null，行为与旧版一致。
+  let safeSnapshot: FeedbackSnapshot | null = null;
+  if (snapshot !== undefined && snapshot !== null) {
+    if (!isObject(snapshot)) {
+      return fail(ErrorCode.INVALID_REQUEST, 'snapshot 必须为对象');
+    }
+    const { question, answer } = snapshot;
+    if (typeof question !== 'string' || typeof answer !== 'string') {
+      return fail(ErrorCode.INVALID_REQUEST, 'snapshot 缺少 question/answer 字段');
+    }
+    if (question.length > config.admin.snapshotQuestionMax) {
+      return fail(
+        ErrorCode.SNAPSHOT_TOO_LONG,
+        `快照 question 超过 ${config.admin.snapshotQuestionMax} 字符上限`,
+      );
+    }
+    if (answer.length > config.admin.snapshotAnswerMax) {
+      return fail(
+        ErrorCode.SNAPSHOT_TOO_LONG,
+        `快照 answer 超过 ${config.admin.snapshotAnswerMax} 字符上限`,
+      );
+    }
+    safeSnapshot = { question, answer };
+  }
+
+  return {
+    ok: true,
+    value: { message_id, type, note: safeNote, scenario_id: safeScenario, snapshot: safeSnapshot },
+  };
 }
 
 export interface HandoffValue {

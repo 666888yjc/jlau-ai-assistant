@@ -2,6 +2,8 @@ import type {
   CreateFeedbackInput,
   CreateHandoffInput,
   Feature,
+  FeedbackFilter,
+  FeedbackListResult,
   FeedbackRecord,
   HandoffRecord,
   Scenario,
@@ -74,8 +76,45 @@ export class CloudBaseStore implements Store {
       scenario_id: input.scenario_id,
       created_at: new Date().toISOString(),
     };
+    // A-2：仅在存在快照时落库（不传则字段缺失，与旧文档结构兼容）
+    if (input.snapshot !== undefined && input.snapshot !== null) {
+      rec.snapshot = input.snapshot;
+    }
     await this.db.collection('feedback').add({ ...rec });
     return rec;
+  }
+
+  /**
+   * A-1/A-5/A-6/A-7 管理端反馈列表。
+   * where({type?/scenario_id?/note: RegExp}) → orderBy('created_at','desc') → skip/limit → count()。
+   *
+   * 🔒 与既有其他 list 方法的唯一差异：**items 必须保留 `_id`（不 strip）**——
+   * CloudBase 文档自带 `_id`，strip 会剥掉它导致前端 React key 与引用丢失；
+   * JsonStore 的 `_id` 是本地生成的，两 store 同构约定（AC-A1.5）要求字段集合完全一致。
+   */
+  async listFeedback(filter: FeedbackFilter = {}): Promise<FeedbackListResult> {
+    const { type, scenario_id, q } = filter;
+    const page = filter.page && filter.page >= 1 ? Math.floor(filter.page) : 1;
+    const pageSize =
+      filter.pageSize && filter.pageSize >= 1 ? Math.floor(filter.pageSize) : 20;
+
+    const where: Record<string, unknown> = {};
+    if (type !== undefined) where.type = type;
+    if (scenario_id !== undefined) where.scenario_id = scenario_id;
+    if (q !== undefined && q.trim() !== '') {
+      // q 对 note 模糊匹配：转义正则元字符 + 不区分大小写
+      where.note = this.db.RegExp({ regexp: escapeRegExp(q.trim()), options: 'i' });
+    }
+
+    let query = this.db.collection('feedback').where(where);
+    query = query.orderBy('created_at', 'desc');
+    query = query.skip((page - 1) * pageSize).limit(pageSize);
+    const res = await query.get();
+    const countRes = await this.db.collection('feedback').where(where).count();
+
+    // 保留 _id（不 strip）——见方法头注释
+    const items = (res.data || []) as FeedbackRecord[];
+    return { items, total: countRes.total || 0, page, pageSize };
   }
 
   async createHandoff(input: CreateHandoffInput): Promise<HandoffRecord> {
@@ -96,4 +135,9 @@ export class CloudBaseStore implements Store {
     void _id;
     return rest as T;
   }
+}
+
+/** 转义正则元字符：用户输入的 q 作为 RegExp 字面量前必须转义，避免注入/误匹配。 */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
