@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { join, resolve } from 'path';
 import type {
   CreateFeedbackInput,
   CreateHandoffInput,
@@ -13,6 +13,18 @@ import type {
 } from '../types';
 import { newFeedbackId, newHandoffId } from '../utils/id';
 import { cloneFeatures, cloneScenarios } from './seed';
+
+/**
+ * 只读种子目录：部署包内置的初始数据（server/data/，含 65 条历史反馈）。
+ *
+ * 路径推算（不猜）：源码位于 `server/src/store/`，编译产物位于 `server/dist/store/`，
+ * 云函数部署包内位于 `<bundle>/dist/store/`——三者相对 server/ 都是两层目录，
+ * 因此 `join(__dirname, '..', '..', 'data')` 统一解析到 `server/data/`（部署包内的只读区）。
+ */
+const SEED_DIR = join(__dirname, '..', '..', 'data');
+
+/** init() 需要保证存在的数据文件（与 loadFile 调用一一对应）。 */
+const DATA_FILES = ['scenarios.json', 'features.json', 'feedback.json', 'human_handoff.json'];
 
 /**
  * 本地存储实现：默认落盘到 JSON 文件（对齐 db-schema.md 集合结构）；
@@ -43,10 +55,29 @@ export class JsonStore implements Store {
       return;
     }
     if (!existsSync(this.dir)) mkdirSync(this.dir, { recursive: true });
+    this.seedFromReadonlyDir();
     this.scenarios = this.loadFile<Scenario>('scenarios.json', cloneScenarios());
     this.features = this.loadFile<Feature>('features.json', cloneFeatures());
     this.feedback = this.loadFile<FeedbackRecord>('feedback.json', []);
     this.handoffs = this.loadFile<HandoffRecord>('human_handoff.json', []);
+  }
+
+  /**
+   * 种子迁移：dataDir（可写区，如 /tmp/data）为空时，从只读种子目录拷贝初始数据，
+   * 再交给 loadFile 加载。云函数文件系统只读（仅 /tmp 可写）：
+   * - 首次冷启动：从种子拷贝 65 条历史反馈 → 后续写入 dataDir 不再崩溃、历史不丢；
+   * - 实例重启：dataDir 已有数据直接复用；若 /tmp 被清空，重新从种子拷贝（种子永远在包内）。
+   * 幂等：目标文件已存在则跳过；dataDir 就是种子目录本身（本地开发默认）时跳过，避免自己拷自己。
+   */
+  private seedFromReadonlyDir(): void {
+    if (resolve(this.dir) === resolve(SEED_DIR)) return;
+    for (const name of DATA_FILES) {
+      const target = join(this.dir, name);
+      const source = join(SEED_DIR, name);
+      if (existsSync(target)) continue;
+      if (!existsSync(source)) continue;
+      copyFileSync(source, target);
+    }
   }
 
   private loadFile<T>(name: string, fallback: T[]): T[] {
