@@ -10,6 +10,7 @@ import type {
   Store,
 } from '../types';
 import { newFeedbackId, newHandoffId } from '../utils/id';
+import { cloneFeatures, cloneScenarios } from './seed';
 
 /**
  * CloudBase 文档库存储实现（部署形态）。
@@ -24,6 +25,36 @@ export class CloudBaseStore implements Store {
     const tcb = await import('tcb-admin-node');
     this.db = tcb.init({ env: tcb.SYMBOL_CURRENT_ENV }).database();
     await this.ensureIndexes().catch(() => undefined);
+    await this.seedIfEmpty().catch(() => undefined);
+  }
+
+  /**
+   * 静态目录种子（幂等 upsert）：集合为空时用 doc(seed._id).set() 灌入。
+   *
+   * 只灌 scenarios/features（静态目录数据：场景图标映射单一事实源 + 快捷问题卡）；
+   * **不灌** feedback / human_handoff——它们是用户数据，历史反馈由数据迁移导入，
+   * 兜底队列的正确初始态就是空（真实工单经 API 流入）。
+   *
+   * 幂等性：`doc(_id).set()` 是 create-or-replace，多实例并发冷启动时同一 `_id`
+   * 后写覆盖前写，不会产生重复文档；scenarios.id 唯一索引（若已手动建）双保险。
+   * 仅当 count()===0 才灌，避免覆盖线上已有人工维护的目录数据。
+   */
+  private async seedIfEmpty(): Promise<void> {
+    const scenarioCount = await this.db.collection('scenarios').where({}).count();
+    if (scenarioCount.total === 0) {
+      for (const s of cloneScenarios()) {
+        const { _id, ...rest } = s;
+        await this.db.collection('scenarios').doc(_id).set({ ...rest });
+      }
+    }
+
+    const featureCount = await this.db.collection('features').where({}).count();
+    if (featureCount.total === 0) {
+      for (const f of cloneFeatures()) {
+        const { _id, ...rest } = f;
+        await this.db.collection('features').doc(_id).set({ ...rest });
+      }
+    }
   }
 
   private async ensureIndexes(): Promise<void> {
