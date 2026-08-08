@@ -8,6 +8,7 @@ import { featuresHandler } from './routes/features';
 import { ticketHandler } from './routes/ticket';
 import { rumHandler } from './routes/rum';
 import { errorHandler } from './middleware/errorHandler';
+import { asyncHandler } from './middleware/asyncHandler';
 import {
   adminFeedbackListHandler,
   adminKbRefreshHandler,
@@ -96,21 +97,21 @@ export function createApp(): Express {
     res.json({ code: 0, data: { status: 'ok' }, message: 'ok' });
   });
 
-  app.post('/api/v1/chat', chatHandler);
-  app.post('/api/v1/feedback', feedbackHandler);
-  app.post('/api/v1/human-handoff', handoffHandler);
-  app.get('/api/v1/scenarios', scenariosHandler);
-  app.get('/api/v1/features', featuresHandler);
+  app.post('/api/v1/chat', asyncHandler(chatHandler));
+  app.post('/api/v1/feedback', asyncHandler(feedbackHandler));
+  app.post('/api/v1/human-handoff', asyncHandler(handoffHandler));
+  app.get('/api/v1/scenarios', asyncHandler(scenariosHandler));
+  app.get('/api/v1/features', asyncHandler(featuresHandler));
 
   // 基建端点（本次新增）
-  app.post('/api/v1/ticket', ticketHandler);
-  app.post('/api/v1/rum', rumHandler);
+  app.post('/api/v1/ticket', asyncHandler(ticketHandler));
+  app.post('/api/v1/rum', asyncHandler(rumHandler));
 
   // 管理端端点（方案 A，A-1~A-4）；除 login 外均过 requireAdmin
-  app.post('/api/v1/admin/login', adminLoginHandler);
-  app.post('/api/v1/admin/logout', requireAdmin, adminLogoutHandler);
-  app.get('/api/v1/admin/feedback', requireAdmin, adminFeedbackListHandler);
-  app.post('/api/v1/admin/kb/refresh', requireAdmin, adminKbRefreshHandler);
+  app.post('/api/v1/admin/login', asyncHandler(adminLoginHandler));
+  app.post('/api/v1/admin/logout', requireAdmin, asyncHandler(adminLogoutHandler));
+  app.get('/api/v1/admin/feedback', requireAdmin, asyncHandler(adminFeedbackListHandler));
+  app.post('/api/v1/admin/kb/refresh', requireAdmin, asyncHandler(adminKbRefreshHandler));
 
   app.use(errorHandler);
 

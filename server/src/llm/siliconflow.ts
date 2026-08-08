@@ -234,6 +234,11 @@ function callSiliconFlow(apiKey: string, messages: unknown[]): Promise<Response>
       max_tokens: 800,
       temperature: 0.2,
     }),
+    // 线上 443/回答超时根因：上游 SiliconFlow 偶发「连接建立但首 token 迟迟不来」，
+    // 无超时则服务端无限等待，直到 SCF 函数层 45s 掐断，而前端 TTFB 15s 早已放弃。
+    // 30s 超时（Node ≥17.3 支持 AbortSignal.timeout）把挂起变成可识别的网络异常：
+    // 抛错后由 streamSiliconFlow 既有 catch 分支判为 retryable 重试，耗尽后走 KB 降级。
+    signal: AbortSignal.timeout(30_000),
   });
 }
 

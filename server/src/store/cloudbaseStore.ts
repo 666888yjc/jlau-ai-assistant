@@ -14,17 +14,23 @@ import { cloneFeatures, cloneScenarios } from './seed';
 
 /**
  * CloudBase 文档库存储实现（部署形态）。
- * 通过 tcb-admin-node 访问云函数配套文档数据库，集合结构对齐 db-schema.md。
+ * 通过 @cloudbase/node-sdk 访问云函数配套文档数据库，集合结构对齐 db-schema.md。
  * 本实现仅在 STORE_KIND=cloudbase 时由 getStore() 动态加载，本地验证默认走 JsonStore。
+ *
+ * 2026-08-07 切换自 tcb-admin-node（1.23.0，2020 年）：
+ * 旧 SDK 与当前 CloudBase SCF 运行时不兼容，云库请求必失败；叠加
+ * @cloudbase/database@0.9.15 的 Query.count() 缺少 .catch（unhandledRejection 崩进程）
+ * 与 App 层 async handler 未捕获 rejection，导致函数整体 443。
+ * @cloudbase/node-sdk 由官方当前维护，正确处理 SCF 运行时凭证/环境上下文，
+ * 其内置 @cloudbase/database@1.4.3 的 count() 为正常 async/await（错误可被调用方捕获）。
  */
 export class CloudBaseStore implements Store {
   private db: any;
 
   async init(): Promise<void> {
     // 动态加载，避免本地无依赖时启动失败
-    const tcb = await import('tcb-admin-node');
-    this.db = tcb.init({ env: tcb.SYMBOL_CURRENT_ENV }).database();
-    await this.ensureIndexes().catch(() => undefined);
+    const cloudbase = await import('@cloudbase/node-sdk');
+    this.db = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV }).database();
     await this.seedIfEmpty().catch(() => undefined);
   }
 
@@ -55,27 +61,6 @@ export class CloudBaseStore implements Store {
         await this.db.collection('features').doc(_id).set({ ...rest });
       }
     }
-  }
-
-  private async ensureIndexes(): Promise<void> {
-    const scenarios = this.db.collection('scenarios');
-    await scenarios.createIndex({ id: 1 }, { unique: true }).catch(() => undefined);
-    await scenarios.createIndex({ sort: 1 }).catch(() => undefined);
-    await scenarios.createIndex({ enabled: 1 }).catch(() => undefined);
-
-    const feedback = this.db.collection('feedback');
-    await feedback.createIndex({ scenario_id: 1 }).catch(() => undefined);
-    await feedback.createIndex({ created_at: 1 }).catch(() => undefined);
-    await feedback.createIndex({ scenario_id: 1, created_at: -1 }).catch(() => undefined);
-
-    const handoff = this.db.collection('human_handoff');
-    await handoff.createIndex({ status: 1 }).catch(() => undefined);
-    await handoff.createIndex({ created_at: 1 }).catch(() => undefined);
-    await handoff.createIndex({ status: 1, created_at: -1 }).catch(() => undefined);
-
-    const features = this.db.collection('features');
-    await features.createIndex({ scenario_id: 1 }).catch(() => undefined);
-    await features.createIndex({ scenario_id: 1, sort: 1 }).catch(() => undefined);
   }
 
   async listScenarios(enabledOnly = false): Promise<Scenario[]> {

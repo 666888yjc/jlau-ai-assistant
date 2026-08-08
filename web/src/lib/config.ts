@@ -55,8 +55,12 @@ export const RETRY_MAX_BACKOFF_MS = 30_000;
 // 超时（ERR-1）
 // ---------------------------------------------------------------------------
 
-/** 首 token 超时（毫秒）。phase=sending 起计，到点即中止。 */
-export const TTFB_TIMEOUT_MS = 15_000;
+/**
+ * 首 token 超时（毫秒）。phase=sending 起计，到点即中止。
+ * 与服务端 SiliconFlow 上游 30s 超时对齐：服务端 30s 内必然给出 token / 降级 / done，
+ * 前端 30s 兜底可覆盖绝大多数偶发慢，同时避免 15s 过早误报「回答超时」。
+ */
+export const TTFB_TIMEOUT_MS = 30_000;
 
 /** 流中空闲超时（毫秒）。每收到一个 token 重置；页面隐藏时必须暂停（风险 R2）。 */
 export const IDLE_TIMEOUT_MS = 30_000;
