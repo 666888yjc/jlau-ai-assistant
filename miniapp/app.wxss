@@ -1,0 +1,5 @@
+/* 吉小农报到助手 · 全局样式（极简壳） */
+page {
+  background: #faf9f5;
+  height: 100%;
+}

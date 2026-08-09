@@ -14,6 +14,7 @@ import { ErrorNotice } from '../components/ErrorNotice';
 import { NewContentPill } from '../components/NewContentPill';
 import { getFeatures, postFeedback } from '../lib/api';
 import { buildFeedbackSnapshot } from '../lib/feedback';
+import { isMiniProgram, navigateBackInMiniProgram } from '../lib/miniprogram';
 import { addMemory, buildGreeting, isMemoryTextTruncated, readMemory, readProfile } from '../lib/profile';
 import { shouldRenderErrorCard } from '../lib/errors';
 import { trimStoredMessages } from '../lib/context';
@@ -243,6 +244,18 @@ export function ChatPage() {
   const scenarioId = params.get('scenario') || 'baodao';
   const navigate = useNavigate();
 
+  // M-5.②：小程序 web-view 无浏览器返回键。小程序环境给顶部渲染返回控件，
+  // 点击走 navigateBackInMiniProgram()（退出 web-view 页面栈）；普通浏览器不渲染
+  // 返回键（onBack 为 undefined），保持既有行为（左上角品牌标）完全不变。
+  const inMiniProgram = useMemo(() => isMiniProgram(), []);
+  const handleBack = useCallback(() => {
+    if (inMiniProgram) {
+      navigateBackInMiniProgram();
+    } else {
+      navigate('/scenarios');
+    }
+  }, [inMiniProgram, navigate]);
+
   // 初始化：优先从 localStorage 按场景维度恢复，否则空会话 + 新 conversationId。
   // initial 保持原始读取（用于判断是否触发「配额满」提示），真正给 hook 的 initialMessages 先裁剪到 50 条。
   const initial = useMemo(() => loadConversation(scenarioId), [scenarioId]);
@@ -444,6 +457,7 @@ export function ChatPage() {
   return (
     <AppShell
       title="吉农 AI 助手"
+      onBack={inMiniProgram ? handleBack : undefined}
       right={
         <>
           {/* AppShell 内部先渲染 ThemeToggle，故实际顺序为 [主题][模块中心][更多]（架构 §8 A2 默认方案） */}

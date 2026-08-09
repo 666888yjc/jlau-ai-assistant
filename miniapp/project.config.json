@@ -1,0 +1,28 @@
+{
+  "appid": "<APPID>",
+  "compileType": "miniprogram",
+  "libVersion": "3.4.10",
+  "miniprogramRoot": "./",
+  "projectname": "jlau-baodao-miniapp",
+  "description": "吉小农报到助手（WebView 套壳，方案 B）—— 极简壳：1 个 web-view 全屏页 + scenario 透传 + 分享卡片",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "coverView": true,
+    "lazyloadPlaceholderEnable": false,
+    "ignoreUploadUnusedFiles": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "condition": {},
+  "editorSetting": {
+    "tabIndent": "insertSpaces",
+    "tabSize": 2
+  }
+}
