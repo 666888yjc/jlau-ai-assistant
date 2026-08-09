@@ -332,6 +332,19 @@ export function ChatPage() {
     scroll.follow();
   }, [messages, scroll.follow]);
 
+  // —— 首次进入直接贴底（修复「打开停在对话中间」）——
+  // 历史消息首帧渲染时 .msg-row 的 content-visibility:auto（PERF-6）让 scrollHeight
+  // 是估算值（contain-intrinsic-size 120px），单次 follow() 会停在「估算底部」（对话中间）。
+  // 这里在首帧绘制前（useLayoutEffect）强制真实布局并滚到真实底部，
+  // 同时初始保护期 onScroll 不写 pinned，避免首帧滚动事件误判「用户上翻」。
+  const didInitialSettleRef = useRef(false);
+  useLayoutEffect(() => {
+    if (didInitialSettleRef.current) return;
+    didInitialSettleRef.current = true;
+    scroll.scrollToBottomInitial();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // —— 防抖持久化：流式 token 高频追加时 250ms 合并写入，避免卡顿；卸载前立即落盘 ——
   const saveTimerRef = useRef<number | null>(null);
   const snapshotRef = useRef<{ scenarioId: string; conversationId: string; messages: UIMessage[] }>({

@@ -363,6 +363,14 @@ svg {
   contain-intrinsic-size: auto 120px;
 }
 
+/* 首次进入会话的贴底沉降（useScrollFollow.scrollToBottomInitial）：
+   临时关闭 content-visibility 跳过布局，让 scrollHeight 反映真实总高，
+   避免首帧滚动到「估算底部」（长会话会停在对话中间）。
+   行已渲染后 contain-intrinsic-size:auto 会记住真实尺寸，移除本类后滚动位置不回弹。 */
+.chat-settle .msg-row {
+  content-visibility: visible;
+}
+
 .msg-row.user {
   flex-direction: row-reverse;
 }
