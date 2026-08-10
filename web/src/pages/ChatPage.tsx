@@ -622,7 +622,14 @@ export function ChatPage() {
       <InputBar
         value={input}
         onChange={setInput}
-        onSend={() => chat.send(input)}
+        onSend={() => {
+          // 发送即清空（主流聊天 UX）：chat.send 同步触发异步流，发送被接受（气泡已入列、
+          // 请求已派发）后立刻清空输入框，用户可马上打下一个问题。
+          // 顺序「先 send 后 setInput('')」：若 send 同步抛错（理论极低概率），
+          // setInput('') 不会执行，输入框文字保留，用户可直接重试，不丢稿。
+          chat.send(input);
+          setInput('');
+        }}
         streaming={isStreaming}
         onStop={chat.stop}
         onStickerClick={() => setStickerOpen((v) => !v)}
