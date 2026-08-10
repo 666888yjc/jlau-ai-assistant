@@ -152,7 +152,7 @@ const RATE_LIMIT_TEXT_RE = /(rate.?limit|quota|too\s*many|limit|throttl|busy|限
 /** 鉴权 / 参数类致命状态码，重试没有意义 */
 const FATAL_STATUS = new Set<number>([400, 401, 403]);
 
-const MAX_ATTEMPTS = 4;
+const MAX_BACKOFF_MS = 5_000;
 const BASE_BACKOFF_MS = 800;
 
 /** 安全读取响应体文本，失败返回空串（绝不抛出，避免影响降级主流程） */
@@ -178,10 +178,14 @@ function parseRetryAfterMs(raw: string | null): number {
   return 0;
 }
 
-/** 指数退避：第 i 次重试前等待 800 * 2^i ms；若上游给了 Retry-After 则取更大者 */
+/**
+ * 指数退避：第 i 次重试前等待 800 * 2^i ms；若上游给了 Retry-After 则取更大者。
+ * 统一按 MAX_BACKOFF_MS 封顶：上游 Retry-After 超长时不再无限等待，
+ * 保证「单次超时×次数 + 各次退避」总耗时上限 < 40s（SCF 函数层 45s 内留余量）。
+ */
 function backoffMs(attempt: number, retryAfterMs: number): number {
   const exponential = BASE_BACKOFF_MS * Math.pow(2, attempt);
-  return Math.max(exponential, retryAfterMs);
+  return Math.min(Math.max(exponential, retryAfterMs), MAX_BACKOFF_MS);
 }
 
 /** 状态码分类：429 / 5xx / 408 / 409 可重试；400/401/403 及其余 4xx 视为致命 */
@@ -235,10 +239,12 @@ function callSiliconFlow(apiKey: string, messages: unknown[]): Promise<Response>
       temperature: 0.2,
     }),
     // 线上 443/回答超时根因：上游 SiliconFlow 偶发「连接建立但首 token 迟迟不来」，
-    // 无超时则服务端无限等待，直到 SCF 函数层 45s 掐断，而前端 TTFB 15s 早已放弃。
-    // 30s 超时（Node ≥17.3 支持 AbortSignal.timeout）把挂起变成可识别的网络异常：
-    // 抛错后由 streamSiliconFlow 既有 catch 分支判为 retryable 重试，耗尽后走 KB 降级。
-    signal: AbortSignal.timeout(30_000),
+    // 无超时则服务端无限等待，直到 SCF 函数层 45s 掐断，而前端早已放弃。
+    // 15s 超时（Node ≥17.3 支持 AbortSignal.timeout）把挂起变成可识别的网络异常：
+    // 抛错后由 streamSiliconFlow 既有 catch 分支判为 retryable 重试（共 2 次），
+    // 耗尽后走 KB 降级。关键约束：该值**必须小于前端 TTFB 阈值 40s**（web/src/lib/config.ts），
+    // 且 15s×2 + 退避(≤5s) = 35s < 40s，绝不被 SCF 45s 平台掐断。
+    signal: AbortSignal.timeout(config.siliconflowTimeoutMs),
   });
 }
 
@@ -267,10 +273,13 @@ export async function streamSiliconFlow(input: ChatInput, emit: Emit): Promise<v
   ];
 
   // —— 重试 + 指数退避，应对 SiliconFlow 免费档限流（429 / 50609）与偶发 5xx ——
-  // 仅当拿到真正可读的 SSE 流时才赋值；JSON 错误体一律视为失败走重试/降级
+  // 仅当拿到真正可读的 SSE 流时才赋值；JSON 错误体一律视为失败走重试/降级。
+  // 次数收敛为 config.siliconflowMaxAttempts（默认 2）：单次超时×次数+退避总耗时 < 40s，
+  // 保证重试链在 SCF 函数层 45s 上限内跑完，绝不出现「上游一挂起，平台先掐断」。
+  const maxAttempts = config.siliconflowMaxAttempts;
   let streamResp: Response | null = null;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const tag = `attempt ${attempt + 1}/${MAX_ATTEMPTS}`;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const tag = `attempt ${attempt + 1}/${maxAttempts}`;
     let outcome: AttemptOutcome = 'retryable';
     let retryAfterMs = 0;
 
@@ -302,7 +311,7 @@ export async function streamSiliconFlow(input: ChatInput, emit: Emit): Promise<v
       console.error('[siliconflow] 判定为致命错误（鉴权/参数），停止重试并降级');
       break;
     }
-    if (attempt < MAX_ATTEMPTS - 1) await sleep(backoffMs(attempt, retryAfterMs));
+    if (attempt < maxAttempts - 1) await sleep(backoffMs(attempt, retryAfterMs));
   }
 
   // 上游持续不可用 → 降级用知识库资料摘录回答（不报错）

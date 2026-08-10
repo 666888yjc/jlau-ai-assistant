@@ -2,13 +2,14 @@
  * useChatStream（T04 核心 hook）—— 会话状态机 + 流式编排。
  *
  * ## 收敛的三个中止源（架构 §5.2 / 风险 R4）
- *   用户点停止 / TTFB 15s 超时 / 空闲 30s 超时 → 全部走唯一的 `abortWith(reason)`：
+ *   用户点停止 / TTFB 40s 超时 / 空闲 30s 超时 → 全部走唯一的 `abortWith(reason)`：
  *   ① 先写 `abortReasonRef`，② 再 `abort()`，③ 清两个定时器。
  *   `catch` 块只读 `abortReasonRef` 分流 —— 这是评审一票否决项，
  *   顺序错了用户点停止会弹错误卡（读到 stale reason）。
  *
  * ## 双层超时（ERR-1 / §5.3）
- *   - TTFB 15s：phase=sending 起计，首 token 前到点 → 真中止；
+ *   - TTFB 40s：phase=sending 起计，首 token 前到点 → 真中止；
+ *     （服务端 15s×2+退避≤5s=35s 超时链已先兜住，40s 只是极端情况的后端兜底）
  *   - 空闲 30s：phase=streaming 起计，每 token 重置 → 真中止；
  *   - 回前台 8s 挂起提示：只提示不中止（既有逻辑保留）；
  *   - **只用空闲间隔计时，不用总时长**（PRD：长答案只要 token 不断流就不得中止）；

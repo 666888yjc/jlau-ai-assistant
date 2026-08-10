@@ -24,3 +24,6 @@ dist_admin_verify/
 dist_deploy/
 dist_fix_verify/
 dist_miniapp_verify/
+# 超时链修复的验证构建输出（不进版本库）
+dist_tmo_verify/
+dist_tmo_v2/

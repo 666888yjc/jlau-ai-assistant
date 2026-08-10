@@ -67,7 +67,8 @@ function sseChunk(content: string): string {
 const SSE_HELLO = `${sseChunk('你好')}data: [DONE]\n\n`;
 
 /**
- * 用假定时器跑完整条链路：退避 sleep（800/1600/3200ms）瞬时到期，避免真实等待 ~5.6s。
+ * 用假定时器跑完整条链路：退避 sleep（800ms）瞬时到期，避免真实等待。
+ * 重试链已收敛为 2 次（config.siliconflowMaxAttempts=2），只存在一次 800ms 退避。
  */
 async function runStream(input: ChatInput, emit: (e: string, d: unknown) => void): Promise<void> {
   vi.useFakeTimers();
@@ -116,14 +117,14 @@ describe('streamSiliconFlow 限流重试与降级', () => {
     vi.useRealTimers();
   });
 
-  it('用例1：连续 4 次 429 -> 重试满 4 次后降级为资料摘录，无 error 事件', async () => {
+  it('用例1：连续 2 次 429 -> 重试满 2 次后降级为资料摘录，无 error 事件', async () => {
     const fetchMock = vi.fn(async () => jsonResponse(429, { code: 50609, message: 'rate limit' }));
     vi.stubGlobal('fetch', fetchMock);
     const { events, emit } = createCollector();
 
     await runStream(makeInput(), emit);
 
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expectKbFallback(events);
   });
 
@@ -138,14 +139,14 @@ describe('streamSiliconFlow 限流重试与降级', () => {
     expectKbFallback(events);
   });
 
-  it('用例3：HTTP 200 但 JSON 限流错误体(50609) -> 判可重试，4 次后降级，无 error 事件', async () => {
+  it('用例3：HTTP 200 但 JSON 限流错误体(50609) -> 判可重试，2 次后降级，无 error 事件', async () => {
     const fetchMock = vi.fn(async () => jsonResponse(200, { code: 50609, message: 'rate limit' }));
     vi.stubGlobal('fetch', fetchMock);
     const { events, emit } = createCollector();
 
     await runStream(makeInput(), emit);
 
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expectKbFallback(events);
   });
 
@@ -169,10 +170,9 @@ describe('streamSiliconFlow 限流重试与降级', () => {
     expect(text).not.toContain('资料库原文摘录');
   });
 
-  it('用例5：前 2 次 429、第 3 次 SSE 成功 -> 拿到真实内容，不降级', async () => {
+  it('用例5：前 1 次 429、第 2 次 SSE 成功 -> 拿到真实内容，不降级', async () => {
     const fetchMock = vi
       .fn()
-      .mockImplementationOnce(async () => jsonResponse(429, { code: 50609, message: 'rate limit' }))
       .mockImplementationOnce(async () => jsonResponse(429, { code: 50609, message: 'rate limit' }))
       .mockImplementationOnce(async () => sseResponse(`${sseChunk('你好')}${sseChunk('，同学')}data: [DONE]\n\n`));
     vi.stubGlobal('fetch', fetchMock);
@@ -180,14 +180,14 @@ describe('streamSiliconFlow 限流重试与降级', () => {
 
     await runStream(makeInput(), emit);
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     const text = tokenText(events);
     expect(text).toBe('你好，同学');
     expect(eventNames(events)).not.toContain('error');
     expect(text).not.toContain('AI 大模型暂时繁忙');
   });
 
-  it('指数退避：两次重试间隔分别为 800ms / 1600ms', async () => {
+  it('指数退避：首发失败后重试前等待 800ms（重试链仅 2 次，只有一次退避）', async () => {
     const fetchMock = vi.fn(async () => jsonResponse(429, { code: 50609, message: 'rate limit' }));
     vi.stubGlobal('fetch', fetchMock);
     const { emit } = createCollector();
@@ -203,17 +203,12 @@ describe('streamSiliconFlow 限流重试与降级', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(fetchMock).toHaveBeenCalledTimes(2);
 
-      await vi.advanceTimersByTimeAsync(1599);
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-      await vi.advanceTimersByTimeAsync(1);
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-
       await vi.runAllTimersAsync();
       await running;
     } finally {
       vi.useRealTimers();
     }
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('边界：5xx 视为可重试，耗尽后降级', async () => {
@@ -223,7 +218,7 @@ describe('streamSiliconFlow 限流重试与降级', () => {
 
     await runStream(makeInput(), emit);
 
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expectKbFallback(events);
   });
 
@@ -238,7 +233,7 @@ describe('streamSiliconFlow 限流重试与降级', () => {
     expectKbFallback(events);
   });
 
-  it('边界：fetch 抛网络异常 -> 按抖动重试 4 次后降级，不向前端抛 error', async () => {
+  it('边界：fetch 抛网络异常 -> 按抖动重试 2 次后降级，不向前端抛 error', async () => {
     const fetchMock = vi.fn(async () => {
       throw new Error('ECONNRESET');
     });
@@ -247,7 +242,7 @@ describe('streamSiliconFlow 限流重试与降级', () => {
 
     await runStream(makeInput(), emit);
 
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expectKbFallback(events);
   });
 
@@ -258,7 +253,7 @@ describe('streamSiliconFlow 限流重试与降级', () => {
 
     await runStream(makeInput(), emit);
 
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expectKbFallback(events);
   });
 
@@ -280,7 +275,7 @@ describe('streamSiliconFlow 限流重试与降级', () => {
 
     await runStream(makeInput('zzzqqqxxx'), emit);
 
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     const names = eventNames(events);
     expect(names).not.toContain('error');
     expect(names).not.toContain('sources'); // 无命中则不发来源
