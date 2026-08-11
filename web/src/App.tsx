@@ -83,7 +83,8 @@ export function App() {
     <BrowserRouter>
       <Suspense fallback={<PageSkeleton />}>
         <Routes>
-          <Route path="/" element={<Navigate to="/welcome" replace />} />
+          {/* 根路径直达答疑页：新生/家长点击分享的网址直接进入 baodao 问答，无需先过欢迎页 */}
+          <Route path="/" element={<Navigate to="/chat?scenario=baodao" replace />} />
           <Route path="/welcome" element={<WelcomePage />} />
           {/* /chat 首屏必载，静态 import（A5）；场景切换走 useChatStream.resetForScenario */}
           <Route path="/chat" element={<ChatPage />} />
