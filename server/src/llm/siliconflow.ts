@@ -108,8 +108,10 @@ const KB_BLOCK_RE = /^【(.+?)】\n([\s\S]+)$/;
 /**
  * 把知识库检索原文（形如 `【标题】\n段落\n\n【标题】\n段落`）整理成干净的资料摘录。
  * 匹配标题格式的块渲染为 `▸ 标题\n正文`；不匹配的块原样保留。
+ * 正文会经 cleanExcerptBody 去掉模板元信息（主题/更新日期/适用对象/来源）、`---` 分隔线与首行标题，
+ * 避免 LLM 繁忙降级时用户看到满屏编辑痕迹。
  */
-function formatKbExcerpt(context: string): string {
+export function formatKbExcerpt(context: string): string {
   const blocks = context
     .trim()
     .split('\n\n')
@@ -119,10 +121,31 @@ function formatKbExcerpt(context: string): string {
     const matched = KB_BLOCK_RE.exec(block);
     if (!matched) return block;
     const title = matched[1].trim();
-    const bodyText = matched[2].trim();
+    const bodyText = cleanExcerptBody(matched[2].trim());
     return `▸ ${title}\n${bodyText}`;
   });
   return rendered.join('\n\n');
+}
+
+/** KB 元信息行前缀（主题/更新日期/适用对象/来源），降级摘录中属于编辑痕迹，删除。 */
+const EXCERPT_META_RE = /^(主题|更新日期|适用对象|来源)[:：]/;
+
+/**
+ * 摘录正文清理：去掉 KB 模板的元信息行、`---` 分隔线，以及开头紧跟标题的 `# 标题` 行，
+ * 只保留可读正文（保留 `##` 小标题与「重要提示」等对用户有用的内容）。
+ */
+export function cleanExcerptBody(body: string): string {
+  const lines = body.split('\n');
+  const out: string[] = [];
+  for (const line of lines) {
+    const t = line.trim();
+    // 开头的空行与 `# 标题`（H1）行属于块头，跳过（标题已由 ▸ 呈现）；`##` 小节标题保留
+    if (out.length === 0 && (t === '' || /^#\s/.test(t))) continue;
+    if (EXCERPT_META_RE.test(t)) continue;
+    if (/^-{3,}$/.test(t)) continue;
+    out.push(line);
+  }
+  return out.join('\n').trim();
 }
 
 /**

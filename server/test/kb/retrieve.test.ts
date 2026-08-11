@@ -36,4 +36,16 @@ describe('retrieve (BM25-lite 相关性)', () => {
     expect(counts.size).toBeGreaterThan(0);
     for (const c of counts.values()) expect(c).toBeLessThanOrEqual(2);
   });
+
+  it('同义词降权：美食问题首位命中美食篇，泛主题学术篇不混入', () => {
+    // 回归保护：ALIASES「吉农→学校」不应让「学术规范」这类泛主题篇目靠高频"学校"词挤进美食问题的上下文。
+    const { context } = retrieve('吉农周边有啥好吃的');
+    const blocks = context
+      .split('\n\n')
+      .map((b) => b.match(/^【(.+?)】/)?.[1])
+      .filter((t): t is string => Boolean(t));
+    expect(blocks.length).toBeGreaterThan(0);
+    expect(blocks[0]).toContain('美食');
+    expect(blocks.some((b) => b.includes('学术'))).toBe(false);
+  });
 });

@@ -13,7 +13,9 @@ import { config } from '../config';
  *   2. 长度归一化：`score /= 0.5 + 0.5 * (para.length / AVG_LEN)`，对冗长段落做惩罚，让精准短段落也能排上来。
  *   3. 标题/主题加权：tokens 中出现在 doc.header（标题+主题词）的数量记为 titleHits，`score += titleHits * 2`，
  *      保留并强化旧版「标题命中加权」的意图（旧版仅 +3 且只判标题是否含 token）。
- *   4. 检索文本仍为 `header + ' ' + para`，使标题/主题里的关键词也能为正文段落加分。
+ *   4. 同义词扩展词降权：原始查询词权重 1.0、ALIASES 扩展词权重 0.5（见 buildWeightedTokens），
+ *      避免「吉农→学校」这类泛化词让泛主题篇目（学校概况/学术规范）靠高频提及"学校"喧宾夺主。
+ *   5. 检索文本仍为 `header + ' ' + para`，使标题/主题里的关键词也能为正文段落加分。
  *
  * 多样性保护：同一文档最多选取 `MAX_PER_DOC` 段进入 top-K（用已 picked 的 doc.file 计数控制），
  * 避免「新生手册」类大文档靠多段重复词霸占全部槽位、挤掉更相关的其它篇目，保证话题覆盖。
@@ -168,6 +170,33 @@ function expandQuery(q: string): string {
   return expanded;
 }
 
+/** 带权重的检索词：原始查询词权重 1.0，同义词扩展词权重 0.5。 */
+interface WeightedToken {
+  token: string;
+  weight: number;
+}
+
+/**
+ * 构造带权重的检索词序列（去重）。
+ *
+ * 为什么降权同义词：ALIASES 里「吉农→学校/吉林农业大学」这类泛化词，会让
+ * 「学校概况」「学术规范」等泛主题篇目仅凭高频提及"学校"就压过真正命中主题的篇目
+ * （线上曾出现"问周边美食，学术规范篇混入 top 上下文"）。原始查询词是强信号（权重 1），
+ * 扩展词只是召回兜底（权重 0.5），让精准命中主题的篇目排在前面。
+ */
+function buildWeightedTokens(q: string): WeightedToken[] {
+  const original = new Set(tokenize(q));
+  const all = tokenize(expandQuery(q));
+  const seen = new Set<string>();
+  const out: WeightedToken[] = [];
+  for (const t of all) {
+    if (seen.has(t)) continue;
+    seen.add(t);
+    out.push({ token: t, weight: original.has(t) ? 1 : 0.5 });
+  }
+  return out;
+}
+
 function countOccurrences(haystack: string, needle: string): number {
   if (!needle) return 0;
   let count = 0;
@@ -184,25 +213,25 @@ function countOccurrences(haystack: string, needle: string): number {
  *
  * @param doc 所属文档（提供 header 用于标题/主题加权）
  * @param para 待打分的正文段落
- * @param tokens 已分词 + 同义词扩展后的检索词（可能含重复项，按原样逐 token 计权）
+ * @param tokens 带权重的检索词（原始查询词权重 1 / 同义词扩展词权重 0.5，已去重）
  * @returns 相关性得分（>=0）；当且仅当 0 表示该段落与查询完全无关
  */
-function scoreParagraph(doc: KbDoc, para: string, tokens: string[]): number {
+function scoreParagraph(doc: KbDoc, para: string, tokens: WeightedToken[]): number {
   // 检索文本 = 标题 + 主题词 + 正文，使标题/主题里的关键词（如「周边美食」）也能为正文段落加分
   const searchText = `${doc.header} ${para}`;
 
-  // 1. 次线性 TF：每个**命中**（count>0）token 累加 1 + log2(1 + count)，抑制同一词反复出现带来的虚假高分。
-  //    ⚠️ 必须判 count>0：否则未命中的 token 也会贡献 1+log2(1)=1，退化成「谁短谁赢」，与相关性无关。
+  // 1. 次线性 TF：每个**命中**（count>0）token 累加 weight × (1 + log2(1 + count))。
+  //    ⚠️ 必须判 count>0：否则未命中的 token 也会贡献权重，退化成「谁短谁赢」，与相关性无关。
   let tf = 0;
-  for (const t of tokens) {
-    const count = countOccurrences(searchText, t);
-    if (count > 0) tf += 1 + Math.log2(1 + count);
+  for (const wt of tokens) {
+    const count = countOccurrences(searchText, wt.token);
+    if (count > 0) tf += wt.weight * (1 + Math.log2(1 + count));
   }
   if (tf === 0) return 0;
 
-  // 3. 标题/主题加权：出现在 doc.header 的 token 数量加权（保留并强化旧版标题加权）
+  // 3. 标题/主题加权：出现在 doc.header 的 token 按权重累加（保留并强化旧版标题加权）
   let titleHits = 0;
-  for (const t of tokens) if (doc.header.includes(t)) titleHits += 1;
+  for (const wt of tokens) if (doc.header.includes(wt.token)) titleHits += wt.weight;
 
   // 2. 长度归一化：长段落被惩罚；短段落不被过度奖励（下限 0.5 防止极短段落分数虚高）
   const lengthNorm = 0.5 + 0.5 * (para.length / AVG_LEN);
@@ -218,7 +247,7 @@ function scoreParagraph(doc: KbDoc, para: string, tokens: string[]): number {
  */
 export function retrieve(query: string, topK = 4, maxChars = 3500): Retrieved {
   const docs = loadDocs();
-  const tokens = tokenize(expandQuery(query));
+  const tokens = buildWeightedTokens(query);
   if (docs.length === 0 || tokens.length === 0) {
     return { context: '', sources: [] };
   }
