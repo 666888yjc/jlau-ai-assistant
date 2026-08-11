@@ -6,7 +6,7 @@
       "name": "jlau-ai-assistant",
       "runtime": "Nodejs18.15",
       "handler": "dist/index.main",
-      "memorySize": 256,
+      "memorySize": 512,
       "timeout": 30,
       "installDependency": true,
       "envVariables": {
