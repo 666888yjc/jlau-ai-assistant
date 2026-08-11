@@ -68,7 +68,7 @@ const SSE_HELLO = `${sseChunk('你好')}data: [DONE]\n\n`;
 
 /**
  * 用假定时器跑完整条链路：退避 sleep（800ms）瞬时到期，避免真实等待。
- * 重试链已收敛为 2 次（config.siliconflowMaxAttempts=2），只存在一次 800ms 退避。
+ * 模型降级链已收敛为 2 次尝试（主模型 + 备用模型各 1 次），只存在一次 800ms 退避。
  */
 async function runStream(input: ChatInput, emit: (e: string, d: unknown) => void): Promise<void> {
   vi.useFakeTimers();
@@ -222,14 +222,57 @@ describe('streamSiliconFlow 限流重试与降级', () => {
     expectKbFallback(events);
   });
 
-  it('边界：400 参数错误视为致命，只调用 1 次', async () => {
+  it('边界：400 参数错误不再立即致命，主/备用模型各试 1 次后降级', async () => {
     const fetchMock = vi.fn(async () => jsonResponse(400, { message: 'model not found' }));
     vi.stubGlobal('fetch', fetchMock);
     const { events, emit } = createCollector();
 
     await runStream(makeInput(), emit);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expectKbFallback(events);
+  });
+
+  it('降级链：主模型 50609 限流 -> 自动切备用模型出真回答，不降级', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => jsonResponse(200, { code: 50609, message: 'System is too busy now' }))
+      .mockImplementationOnce(async () => sseResponse(`${sseChunk('备用模型')}${sseChunk('的回答')}data: [DONE]\n\n`));
+    vi.stubGlobal('fetch', fetchMock);
+    const { events, emit } = createCollector();
+
+    await runStream(makeInput(), emit);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const text = tokenText(events);
+    expect(text).toBe('备用模型的回答');
+    expect(eventNames(events)).not.toContain('error');
+    expect(text).not.toContain('AI 大模型暂时繁忙');
+  });
+
+  it('降级链：主模型 404 模型不可用 -> 切备用模型成功', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => jsonResponse(404, { message: 'model not found' }))
+      .mockImplementationOnce(async () => sseResponse(`${sseChunk('你好')}data: [DONE]\n\n`));
+    vi.stubGlobal('fetch', fetchMock);
+    const { events, emit } = createCollector();
+
+    await runStream(makeInput(), emit);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(tokenText(events)).toBe('你好');
+    expect(eventNames(events)).not.toContain('error');
+  });
+
+  it('降级链：主/备用模型都 50609 -> 2 次尝试后降级，无 error 事件', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(200, { code: 50609, message: 'System is too busy now' }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { events, emit } = createCollector();
+
+    await runStream(makeInput(), emit);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expectKbFallback(events);
   });
 

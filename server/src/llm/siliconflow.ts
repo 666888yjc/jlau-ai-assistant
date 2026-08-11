@@ -247,7 +247,7 @@ function classifyJsonErrorBody(bodyText: string): AttemptOutcome {
   return 'retryable';
 }
 
-function callSiliconFlow(apiKey: string, messages: unknown[]): Promise<Response> {
+function callSiliconFlow(apiKey: string, messages: unknown[], model: string): Promise<Response> {
   return fetch(`${config.siliconflowBaseUrl.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -255,7 +255,7 @@ function callSiliconFlow(apiKey: string, messages: unknown[]): Promise<Response>
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: config.siliconflowModel,
+      model,
       messages,
       stream: true,
       max_tokens: 800,
@@ -264,7 +264,7 @@ function callSiliconFlow(apiKey: string, messages: unknown[]): Promise<Response>
     // 线上 443/回答超时根因：上游 SiliconFlow 偶发「连接建立但首 token 迟迟不来」，
     // 无超时则服务端无限等待，直到 SCF 函数层 45s 掐断，而前端早已放弃。
     // 15s 超时（Node ≥17.3 支持 AbortSignal.timeout）把挂起变成可识别的网络异常：
-    // 抛错后由 streamSiliconFlow 既有 catch 分支判为 retryable 重试（共 2 次），
+    // 抛错后由降级链判为可重试，切备用模型（共 2 次尝试 = 主模型 + 备用模型各 1 次），
     // 耗尽后走 KB 降级。关键约束：该值**必须小于前端 TTFB 阈值 40s**（web/src/lib/config.ts），
     // 且 15s×2 + 退避(≤5s) = 35s < 40s，绝不被 SCF 45s 平台掐断。
     signal: AbortSignal.timeout(config.siliconflowTimeoutMs),
@@ -295,19 +295,25 @@ export async function streamSiliconFlow(input: ChatInput, emit: Emit): Promise<v
     { role: 'user', content: input.message },
   ];
 
-  // —— 重试 + 指数退避，应对 SiliconFlow 免费档限流（429 / 50609）与偶发 5xx ——
-  // 仅当拿到真正可读的 SSE 流时才赋值；JSON 错误体一律视为失败走重试/降级。
-  // 次数收敛为 config.siliconflowMaxAttempts（默认 2）：单次超时×次数+退避总耗时 < 40s，
-  // 保证重试链在 SCF 函数层 45s 上限内跑完，绝不出现「上游一挂起，平台先掐断」。
-  const maxAttempts = config.siliconflowMaxAttempts;
+  // —— 模型降级链 + 指数退避 ——
+  // 免费档 SiliconFlow 上 DeepSeek-V3 常被 50609「系统繁忙」限流（实测同一 key 下 Qwen2.5-72B 可用），
+  // 因此按 [主模型, 备用模型] 顺序各尝试一次：主模型限流/繁忙/模型级错误 → 切备用继续出真回答，
+  // 把「LLM 繁忙 → 掉进 KB 原文摘录」的概率大幅压低；仅 401/403（key 级鉴权）直接放弃（换模型无解）。
+  // 仅当拿到真正可读的 SSE 流时才赋值；JSON 错误体一律视为失败进入下一个模型/降级。
+  // 总耗时上限：15s×2 + 退避(≤5s) = 35s < 40s（前端 TTFB）且 < 45s（SCF 平台上限），绝不互相掐断。
+  const models = [config.siliconflowModel];
+  const backupModel = config.siliconflowModelBackup;
+  if (backupModel && backupModel !== config.siliconflowModel) models.push(backupModel);
+
   let streamResp: Response | null = null;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const tag = `attempt ${attempt + 1}/${maxAttempts}`;
-    let outcome: AttemptOutcome = 'retryable';
-    let retryAfterMs = 0;
+  let retryAfterMs = 0;
+  for (let idx = 0; idx < models.length; idx++) {
+    const model = models[idx];
+    const tag = `model=${model} (${idx + 1}/${models.length})`;
+    if (idx > 0) await sleep(backoffMs(idx - 1, retryAfterMs));
 
     try {
-      const resp = await callSiliconFlow(apiKey, messages);
+      const resp = await callSiliconFlow(apiKey, messages, model);
       retryAfterMs = parseRetryAfterMs(resp.headers.get('retry-after'));
       const contentType = (resp.headers.get('content-type') ?? '').toLowerCase();
       const looksJson = contentType.includes('json');
@@ -319,22 +325,18 @@ export async function streamSiliconFlow(input: ChatInput, emit: Emit): Promise<v
       }
 
       const detail = await safeReadText(resp);
-      outcome = resp.ok ? classifyJsonErrorBody(detail) : classifyStatus(resp.status);
+      const outcome = resp.ok ? classifyJsonErrorBody(detail) : classifyStatus(resp.status);
       console.error(
         `[siliconflow] 上游异常 ${tag} status=${resp.status} ct=${contentType || 'n/a'} ` +
           `kind=${outcome} ${detail.slice(0, 300)}`,
       );
+
+      // 鉴权类错误（key 无效/无权限）：备用模型同样无解，直接放弃
+      if (resp.status === 401 || resp.status === 403) break;
     } catch (e) {
-      // 网络层异常（超时/连接重置）属于抖动，可重试
-      outcome = 'retryable';
+      // 网络层异常（超时/连接重置）属于抖动，切下一个模型
       console.error(`[siliconflow] 网络异常 ${tag} kind=retryable`, e);
     }
-
-    if (outcome === 'fatal') {
-      console.error('[siliconflow] 判定为致命错误（鉴权/参数），停止重试并降级');
-      break;
-    }
-    if (attempt < maxAttempts - 1) await sleep(backoffMs(attempt, retryAfterMs));
   }
 
   // 上游持续不可用 → 降级用知识库资料摘录回答（不报错）

@@ -37,16 +37,16 @@ export const config = {
   siliconflowBaseUrl: process.env.SILICONFLOW_BASE_URL || 'https://api.siliconflow.cn/v1',
   siliconflowModel: process.env.SILICONFLOW_MODEL || 'deepseek-ai/DeepSeek-V3',
   /**
+   * 备用模型：主模型限流/繁忙/模型级错误时自动切换（免费档 DeepSeek-V3 常被 50609「系统繁忙」限流，
+   * 实测同一 key 下 Qwen/Qwen2.5-72B-Instruct 可用且质量较好）。置空字符串可禁用降级链。
+   */
+  siliconflowModelBackup: process.env.SILICONFLOW_MODEL_BACKUP || 'Qwen/Qwen2.5-72B-Instruct',
+  /**
    * SiliconFlow 上游单次 fetch 超时（毫秒）。回答超时根因修复：必须**小于**前端 TTFB 阈值
    * （web/src/lib/config.ts TTFB_TIMEOUT_MS=40s），让「上游偶发慢」时服务端先给出结果/降级，
    * 前端兜底不抢先掐断（杜绝 30s vs 30s 零余量）。
    */
   siliconflowTimeoutMs: numEnv(process.env.SILICONFLOW_TIMEOUT_MS, 15_000),
-  /**
-   * SiliconFlow 重试次数上限（含首次，默认 2 = 1 首发 + 1 重试）。
-   * 总耗时上限 = 15s×2 + 退避(≤5s) = 35s < 40s（SCF 函数层 45s 内留余量，绝不被平台掐断）。
-   */
-  siliconflowMaxAttempts: numEnv(process.env.SILICONFLOW_MAX_ATTEMPTS, 2),
 
   /** 高德地图 Web 服务 key（route-B 实时地图问答用；仅后端持有，前端永不暴露） */
   amapApiKey: process.env.AMAP_API_KEY || '',
