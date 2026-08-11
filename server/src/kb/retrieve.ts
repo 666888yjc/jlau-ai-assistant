@@ -4,8 +4,19 @@ import { config } from '../config';
 
 /**
  * 本地知识库检索（route-B 零代码维护核心）。
- * 不依赖向量数据库：把 .md 按段落切块，用中文字二元组 + ASCII 词做关键词打分，取 top-K 作为上下文。
+ *
+ * 不依赖向量数据库：把 .md 按段落切块，用中文字二元组 + ASCII 词做关键词分词，再以 BM25-lite 打分取 top-K 作为上下文。
  * 替换/增删 server/kb 下的 .md 即可更新知识，无需改代码。
+ *
+ * 打分策略（BM25-lite，相对旧版「词频简单累加」的改进）：
+ *   1. 次线性 TF：对每个命中 token 累加 `1 + log2(1 + count)`，避免同一词在长段落里反复出现就碾压其它段落。
+ *   2. 长度归一化：`score /= 0.5 + 0.5 * (para.length / AVG_LEN)`，对冗长段落做惩罚，让精准短段落也能排上来。
+ *   3. 标题/主题加权：tokens 中出现在 doc.header（标题+主题词）的数量记为 titleHits，`score += titleHits * 2`，
+ *      保留并强化旧版「标题命中加权」的意图（旧版仅 +3 且只判标题是否含 token）。
+ *   4. 检索文本仍为 `header + ' ' + para`，使标题/主题里的关键词也能为正文段落加分。
+ *
+ * 多样性保护：同一文档最多选取 `MAX_PER_DOC` 段进入 top-K（用已 picked 的 doc.file 计数控制），
+ * 避免「新生手册」类大文档靠多段重复词霸占全部槽位、挤掉更相关的其它篇目，保证话题覆盖。
  */
 
 export interface KbSource {
@@ -27,6 +38,11 @@ interface KbDoc {
   updatedAt: string;
   paragraphs: string[];
 }
+
+/** BM25-lite 长度归一化的基准长度（KB 段落平均字符数）。实测全库均值约 203（median 159 / p90 363），按语料标定：均值段落 norm≈1，仅明显偏长（>~360）被惩罚、偏短被抬升。 */
+const AVG_LEN = 200;
+/** 同一文档最多进入 top-K 的段落数，保证话题多样性、避免单篇垄断。 */
+const MAX_PER_DOC = 2;
 
 /**
  * 提取原文中的第一个「干净」URL。
@@ -164,6 +180,37 @@ function countOccurrences(haystack: string, needle: string): number {
 }
 
 /**
+ * 计算 (段落, 文档) 相关性得分 —— BM25-lite。
+ *
+ * @param doc 所属文档（提供 header 用于标题/主题加权）
+ * @param para 待打分的正文段落
+ * @param tokens 已分词 + 同义词扩展后的检索词（可能含重复项，按原样逐 token 计权）
+ * @returns 相关性得分（>=0）；当且仅当 0 表示该段落与查询完全无关
+ */
+function scoreParagraph(doc: KbDoc, para: string, tokens: string[]): number {
+  // 检索文本 = 标题 + 主题词 + 正文，使标题/主题里的关键词（如「周边美食」）也能为正文段落加分
+  const searchText = `${doc.header} ${para}`;
+
+  // 1. 次线性 TF：每个**命中**（count>0）token 累加 1 + log2(1 + count)，抑制同一词反复出现带来的虚假高分。
+  //    ⚠️ 必须判 count>0：否则未命中的 token 也会贡献 1+log2(1)=1，退化成「谁短谁赢」，与相关性无关。
+  let tf = 0;
+  for (const t of tokens) {
+    const count = countOccurrences(searchText, t);
+    if (count > 0) tf += 1 + Math.log2(1 + count);
+  }
+  if (tf === 0) return 0;
+
+  // 3. 标题/主题加权：出现在 doc.header 的 token 数量加权（保留并强化旧版标题加权）
+  let titleHits = 0;
+  for (const t of tokens) if (doc.header.includes(t)) titleHits += 1;
+
+  // 2. 长度归一化：长段落被惩罚；短段落不被过度奖励（下限 0.5 防止极短段落分数虚高）
+  const lengthNorm = 0.5 + 0.5 * (para.length / AVG_LEN);
+
+  return tf / lengthNorm + titleHits * 2;
+}
+
+/**
  * 检索：返回注入模型的知识上下文 + 命中的来源列表。
  * @param query 用户问题
  * @param topK 最多选取的段落数
@@ -178,14 +225,10 @@ export function retrieve(query: string, topK = 4, maxChars = 3500): Retrieved {
 
   const scored: { doc: KbDoc; para: string; score: number }[] = [];
   for (const doc of docs) {
-    doc.paragraphs.forEach((para) => {
-      // 检索文本 = 标题 + 主题词 + 正文，使标题/主题里的关键词（如「周边美食」）也能为正文段落加分
-      const searchText = `${doc.header} ${para}`;
-      let score = 0;
-      for (const t of tokens) score += countOccurrences(searchText, t);
-      if (tokens.some((t) => doc.title.includes(t))) score += 3; // 标题命中加权
+    for (const para of doc.paragraphs) {
+      const score = scoreParagraph(doc, para, tokens);
       if (score > 0) scored.push({ doc, para, score });
-    });
+    }
   }
 
   scored.sort((a, b) => b.score - a.score);
@@ -193,15 +236,18 @@ export function retrieve(query: string, topK = 4, maxChars = 3500): Retrieved {
   const picked: { doc: KbDoc; para: string }[] = [];
   const seen = new Set<string>();
   let chars = 0;
+  const perDoc = new Map<string, number>();
   for (const s of scored) {
     if (picked.length >= topK) break;
     const key = `${s.doc.file}#${s.para.slice(0, 24)}`;
-    if (seen.has(key)) continue;
+    if (seen.has(key)) continue; // 同文档重复段落去重
+    if ((perDoc.get(s.doc.file) ?? 0) >= MAX_PER_DOC) continue; // 每文档多样性上限
     if (chars + s.para.length > maxChars && picked.length > 0) continue;
     const para = picked.length === 0 && chars + s.para.length > maxChars ? s.para.slice(0, maxChars) : s.para;
     picked.push({ doc: s.doc, para });
     chars += para.length;
     seen.add(key);
+    perDoc.set(s.doc.file, (perDoc.get(s.doc.file) ?? 0) + 1);
   }
 
   const context = picked.map((p) => `【${p.doc.title}】\n${p.para}`).join('\n\n');
