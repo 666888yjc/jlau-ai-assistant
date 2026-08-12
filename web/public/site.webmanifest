@@ -1,0 +1,15 @@
+{
+  "name": "吉小农 · 吉林农业大学新生 AI 助手",
+  "short_name": "吉小农",
+  "description": "材料、流程、交通、住宿、美食，一站说清。专为吉小农量身打造的迎新答疑助手。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf9f5",
+  "theme_color": "#3D6B51",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

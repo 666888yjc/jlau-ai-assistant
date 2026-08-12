@@ -10,11 +10,10 @@
     <meta name="theme-color" content="#3D6B51" />
     <!-- SEC-4 子集：Referrer-Policy 用 meta 零风险落地（HSTS/CSP/X-Frame 等需托管控制台配置响应头） -->
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <!-- 内联 SVG 叶形标记：零请求、随主色走，避免默认 Vite 图标 -->
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233D6B51'/%3E%3Cpath d='M16 25V13' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M16 17c0-4 3-7 7-7 0 4-3 7-7 7Z' fill='%23FFFFFF'/%3E%3Cpath d='M16 20c0-3.2-2.4-5.6-5.6-5.6 0 3.2 2.4 5.6 5.6 5.6Z' fill='%23B58234'/%3E%3C/svg%3E"
-    />
+    <!-- PWA：图标 + manifest，让手机能"添加到主屏幕"像原生 App 一样打开（竞品灵感） -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <title>吉农 AI 助手 · 吉小农</title>
     <!-- 微信/QQ 分享卡片：内置浏览器分享链接时显示标题/简介/缩略图，否则分享出去是光秃秃的链接。 -->
     <meta property="og:type" content="website" />
