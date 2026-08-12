@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../components/NavBar';
+import { BrandPanel } from '../components/BrandPanel';
 import { Avatar, Bubble, FeedbackBar, NameChip, SourceFold, TypingIndicator } from '../components/ChatBits';
 import { Mascot, isMascotExpression, type MascotExpression } from '../components/Mascot';
 import { StickerPanel, STICKER_LABELS } from '../components/StickerPanel';
@@ -468,7 +469,11 @@ export function ChatPage() {
   const goHandoff = useCallback(() => navigate('/handoff'), [navigate]);
 
   return (
-    <AppShell
+    <div className="brand-split">
+      {/* 桌面端品牌面板（≥900px 显示；移动端 CSS 隐藏，聊天区保持原布局） */}
+      <BrandPanel />
+      <div className="brand-split-main">
+      <AppShell
       title={
         <>
           {/* 在线绿点：头部身份感（竞品 hello.classby.cn 灵感） */}
@@ -643,6 +648,8 @@ export function ChatPage() {
       />
 
       {toastNode}
-    </AppShell>
+      </AppShell>
+      </div>
+    </div>
   );
 }
