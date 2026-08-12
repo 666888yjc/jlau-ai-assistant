@@ -10,9 +10,9 @@
       "timeout": 30,
       "installDependency": true,
       "envVariables": {
-        "AUTH_ENFORCE": "0",
+        "AUTH_ENFORCE": "1",
         "TICKET_TTL_MS": "1800000",
-        "CORS_ALLOW_ORIGINS": "",
+        "CORS_ALLOW_ORIGINS": "https://yjc-d0gvjkk8tae8bf1ad-1411562898.tcloudbaseapp.com,https://yjc-d0gvjkk8tae8bf1ad-1411562898.ap-shanghai.app.tcloudbase.com",
         "RATE_CHAT_MAX": "20",
         "RATE_WINDOW_MS": "60000"
       }
