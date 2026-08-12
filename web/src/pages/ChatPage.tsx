@@ -469,7 +469,13 @@ export function ChatPage() {
 
   return (
     <AppShell
-      title="吉农 AI 助手"
+      title={
+        <>
+          {/* 在线绿点：头部身份感（竞品 hello.classby.cn 灵感） */}
+          <span className="nav-online-dot" aria-hidden="true" />
+          吉农 AI 助手
+        </>
+      }
       onBack={inMiniProgram ? handleBack : undefined}
       right={
         <>

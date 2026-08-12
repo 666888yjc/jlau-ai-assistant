@@ -37,7 +37,7 @@ function ThemeToggle() {
 }
 
 interface NavBarProps {
-  title: string;
+  title: ReactNode;
   onBack?: () => void;
   right?: ReactNode;
 }

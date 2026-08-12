@@ -663,6 +663,47 @@ svg {
   animation-delay: 0.32s;
 }
 
+/* 富加载态（竞品 hello.classby.cn 灵感）：圆点 + 阶段轮播文案 */
+.typing-stage {
+  margin-left: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--accent-2);
+  animation: jlau-stage-in 0.32s var(--ease-out) both;
+}
+
+@keyframes jlau-stage-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 头部在线绿点（竞品灵感）：呼吸脉冲 */
+.nav-online-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--success);
+  vertical-align: 1px;
+  animation: jlau-online 2.4s var(--ease-standard) infinite;
+}
+
+@keyframes jlau-online {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
 .spin {
   animation: jlau-spin 0.9s linear infinite;
   transform-origin: center;

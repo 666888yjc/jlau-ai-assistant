@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
 import { BrandMark } from './BrandMark';
 import { Mascot, type MascotExpression } from './Mascot';
@@ -133,12 +133,26 @@ export function FeedbackBar({
   );
 }
 
+/** 等待阶段的轮播文案：流式期间循环展示，营造"分步处理"的高级感（竞品 hello.classby.cn 灵感）。 */
+const LOADING_STAGES = ['正在理解问题', '正在查阅资料', '正在组织回答'];
+
 export function TypingIndicator() {
+  const [stage, setStage] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setStage((s) => (s + 1) % LOADING_STAGES.length), 2600);
+    return () => clearInterval(timer);
+  }, []);
   return (
-    <span className="typing" aria-label="正在输入">
-      <i className="dot" />
-      <i className="dot" />
-      <i className="dot" />
+    <span className="typing" role="status" aria-live="polite">
+      <span className="typing-dots" aria-hidden="true">
+        <i className="dot" />
+        <i className="dot" />
+        <i className="dot" />
+      </span>
+      {/* key=stage 触发切换动画（jlau-stage-in） */}
+      <span key={stage} className="typing-stage">
+        {LOADING_STAGES[stage]}…
+      </span>
     </span>
   );
 }
