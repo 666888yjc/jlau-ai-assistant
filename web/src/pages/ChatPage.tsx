@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../components/NavBar';
-import { BrandPanel } from '../components/BrandPanel';
+import { BrandPanel, BrandStrip } from '../components/BrandPanel';
 import { Avatar, Bubble, FeedbackBar, NameChip, SourceFold, TypingIndicator } from '../components/ChatBits';
 import { Mascot, isMascotExpression, type MascotExpression } from '../components/Mascot';
 import { StickerPanel, STICKER_LABELS } from '../components/StickerPanel';
@@ -504,6 +504,8 @@ export function ChatPage() {
         </>
       }
     >
+      {/* 移动端品牌条（桌面由 CSS 隐藏，改显左侧大品牌面板）：手机才是主力场景 */}
+      <BrandStrip />
       <div className="page-scroll chat-list" ref={listRef} role="log" aria-live="polite">
         {messages.length === 0 && (
           <>

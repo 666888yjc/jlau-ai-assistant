@@ -9,8 +9,8 @@ import { Mascot } from './Mascot';
  * - 移动端由 CSS 隐藏（.brand-panel display:none），聊天主区保持原布局零回归。
  */
 
-/** 太阳圆点艺术元素：琥珀太阳 + 光芒 + 内圈 + 叶形标记。 */
-function SunDot() {
+/** 太阳圆点艺术元素：琥珀太阳 + 光芒 + 内圈 + 叶形标记（size 可缩放，桌面大面板/移动端小条共用）。 */
+export function SunDot({ size = 128 }: { size?: number }) {
   const rays = Array.from({ length: 12 }, (_, i) => {
     const angle = (i * 30 * Math.PI) / 180;
     const x1 = 60 + Math.cos(angle) * 36;
@@ -20,7 +20,7 @@ function SunDot() {
     return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} strokeWidth={4} strokeLinecap="round" opacity={0.55} style={{ stroke: 'var(--warn)' }} />;
   });
   return (
-    <svg width="128" height="128" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 120 120" fill="none" aria-hidden="true">
       {rays}
       <circle cx="60" cy="60" r="30" style={{ fill: 'var(--warn)' }} />
       <circle cx="60" cy="60" r="22" opacity={0.92} style={{ fill: 'var(--surface-warm)' }} />
@@ -30,6 +30,24 @@ function SunDot() {
         <path d="M0 11 C -6 7, -10 8, -12 12 C -6 13, -2 12, 0 11 Z" style={{ fill: 'var(--grain)' }} />
       </g>
     </svg>
+  );
+}
+
+/**
+ * 移动端紧凑品牌条：手机上方的品牌存在感（桌面 ≥900px 由 CSS 隐藏，改用左侧大品牌面板）。
+ * 手机端才是主力使用场景——品牌条保证「打开即见品牌」，与竞品 hello.classby.cn 移动端一致。
+ */
+export function BrandStrip() {
+  return (
+    <div className="brand-strip">
+      <span className="brand-strip-art" aria-hidden="true">
+        <SunDot size={36} />
+      </span>
+      <div className="brand-strip-text">
+        <p className="brand-strip-name">吉小农 · 吉林农业大学新生 AI 助手</p>
+        <p className="brand-strip-slogan">材料、流程、交通、住宿、美食，一站说清</p>
+      </div>
+    </div>
   );
 }
 

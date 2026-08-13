@@ -3313,3 +3313,61 @@ summary {
   font-size: var(--font-size-sm);
   color: var(--muted);
 }
+
+/* =========================================================
+   移动端品牌条（手机才是主力场景：打开即见品牌）
+   shell-body 本就是 flex 纵向布局，品牌条 flex-shrink:0 位于聊天列表上方，
+   零布局回归；桌面 ≥900px 隐藏（改用左侧大品牌面板）。
+   ========================================================= */
+.brand-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  flex-shrink: 0;
+  background: var(--surface-warm);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand-strip-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.brand-strip-text {
+  min-width: 0;
+}
+
+.brand-strip-name {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brand-strip-slogan {
+  margin: 2px 0 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.35;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 900px) {
+  .brand-strip {
+    display: none;
+  }
+}
