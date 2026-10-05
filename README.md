@@ -1,10 +1,54 @@
-# 吉农 AI 助手「吉小农」薄壳 MVP —— 部署与交付说明
+# 吉小农 · 校园 AI 答疑助手
 
-面向吉林农业大学新生的自然语言对话式校园 AI 助手。MVP 锚定「新生报到答疑」单场景：前端薄壳 H5（Vite + React）经薄壳后端（Express + TypeScript）代理调用 Coze 智能体，SSE 流式返回答案并标注来源；无答案时兜底转人工。
+[![CI](https://github.com/666888yjc/jlau-ai-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/666888yjc/jlau-ai-assistant/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](web/package.json)
+[![React](https://img.shields.io/badge/React-18-61dafb.svg)](web/package.json)
+[![CloudBase](https://img.shields.io/badge/CloudBase-云函数-0052d9.svg)](docs/deploy-cloudbase.md)
 
-> 状态：已通过 QA 验收（verdict=PASS，P0 归零，代码层 AC 全过）。本文件说明如何把产物变成**可部署、可验证、可交付**的包。
+> 面向 **吉林农业大学新生** 的自然语言对话式校园 AI 助手，锚定「新生报到答疑」场景。
+> 全栈自研：React H5 前端 + Express 后端 + 检索增强问答 + 反馈管理后台，部署在腾讯 CloudBase 云函数。
 
 ---
+
+## 这是什么 / 解决什么问题
+
+每年 7–9 月，新生报到期的咨询量集中爆发，重复问题（报到流程、缴费、学籍、宿舍、食堂、交通）占绝大多数。
+传统做法是人工群答，问题是：**响应不及时、口径不统一、错误回答无法追溯**。
+
+本项目把这段高频咨询交给 AI，并补齐了三件通常会被忽略的事：
+
+| 痛点 | 本项目的做法 |
+|------|-------------|
+| AI 会一本正经地答错 | 回答**只从校园知识库检索**（BM25-lite 打分 + 同义词扩展），无匹配时走咨询渠道引导，**不自由发挥** |
+| 错了没人知道 | 前端一键「报错」并附带**问答快照** → `/admin` 管理后台可见，运营据此修正知识库 |
+| 知识库改了要重启 | 管理后台「刷新知识库」按钮，清检索缓存即时生效，**无需重启/冷启动** |
+| 后台谁都能看 | `ADMIN_PASSWORD` + HMAC 会话令牌；未配置密码时后台**默认关闭**（503），不设「空密码放行」的危险默认值 |
+
+**技术栈**：Vite 5 + React 18 + TypeScript 5.6 · Express 4（tsx/tsc）· SSE 流式响应 · BM25-lite 检索 · CloudBase HTTP 云函数 + 文档存储 · Vitest（server 276 / web 160 用例）· GitHub Actions 六道质量门禁
+
+---
+
+## 快速开始
+
+```bash
+git clone https://github.com/666888yjc/jlau-ai-assistant.git
+cd jlau-ai-assistant
+
+# 后端（:3100）
+cd server && npm install && npm run dev
+
+# 前端（:3000，默认 mock 模式，可独立跑）
+cd web && npm install && npm run dev
+```
+
+浏览器打开 <http://localhost:3000/chat?scenario=baodao>。
+更完整的部署/联调说明见下方「本地快速开始」及 [部署文档](docs/deploy-cloudbase.md)。
+
+---
+
+<details>
+<summary><b>📖 展开：部署与交付说明（原始文档）</b></summary>
 
 ## 1. 技术栈与拓扑
 
@@ -263,3 +307,16 @@ PASS | chat 兜底流 / feedback / scenarios    | 通过
 - **运营上线指南**：`docs/onboarding-guide.md` —— 含 Coze 建 bot + 导入知识库 + 提示词模板、公众号/抖音渠道发布（路线 A，零部署）、薄壳 H5 + CloudBase 部署（路线 B）、`COZE_API_TOKEN` 安全注入红线、上线前验收清单（对应 AC-01/03/04/07/10）。
 - **验证证据**：同会话实测后端 `verify-deploy.mjs` 6/6 通过、后端单测 24/24 通过、前端 H5 dev HTTP 200（mock 模式可打开）。
 - 说明：知识库内容为联网采集通用版，运营拿到学校《2026 新生入学须知》PDF 后可在 Coze 控制台覆盖对应篇目，无需改代码（AC-07）。
+
+</details>
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 Yang Jucai
+
+## 说明与致谢
+
+- 知识库内容整理自**吉林农业大学官方公开信息**（新生手册、公开公告等），每篇附来源 URL 与更新日期；具体办理请以学校官方《新生入学须知》为准。
+- 本项目为个人作品，仅供学习交流使用。仓库中包含完整的测试体系与 CI 门禁，欢迎 fork 参考。
