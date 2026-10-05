@@ -2821,6 +2821,15 @@ svg {
   touch-action: pan-y;
 }
 
+/* 显式设置 iOS 点按高亮（Web Interface Guidelines：tap-highlight 需有意设置）。
+   focus-visible 已提供键盘焦点样式，触屏点按的高亮闪框去掉不损无障碍。 */
+button,
+a,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ---- 14.3 新内容浮标（UX-2）----
    sticky 而非 fixed：浮在滚动列表底部，点击回底。 */
 .new-content-pill {

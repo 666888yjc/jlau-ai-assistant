@@ -69,6 +69,8 @@ export function InputBar({
       <div className="input-pill">
         <input
           className="chat-input"
+          name="chat-input"
+          autoComplete="off"
           value={value}
           /* 移动键盘渐进增强：普通文本键盘 + 回车键显示为「发送」。
              纯浏览器提示属性，不改 props 签名、不影响桌面端与既有调用点行为。 */

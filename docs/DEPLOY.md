@@ -66,6 +66,23 @@ cd web && npm run build         # 产出 web/dist
 ```
 将 `web/dist` 部署到 CloudBase 静态网站，与云函数**同源**（如 `https://<env>.tcb.qcloud.la`）。前端 `BASE='/api/v1'` 同源调用云函数，无需 CORS。
 
+### 5.1 ⚠️ 部署红线：根路径归吉小农，勿被医学助手覆盖（2026-09-02 事故后新增）
+
+- 吉小农**必须部署在静态托管根路径**（`hosting.distPath = web/dist`，即域名根 + `?scenario=` 参数）。
+- 同一 env（`yjc-d0gvjkk8tae8bf1ad`）下还共存第二个前端「医学助手（医溯问答）」，它**只允许部署在 `/med-assistant/` 子路径**（构建用 `base:'./'` 相对路径）。
+- **事故记录（2026-09-02）**：医学助手构建产物曾上传到根 `/`，覆盖根 `index.html` → 吉小农入口被顶掉（根域名与所有 SPA 路径全指向医学助手页）。吉小农 assets 实际未丢，重传根路径即恢复。
+- **红线**：医学助手部署**绝不传根 `/`**；吉小农部署只传根 `/`，两者互不覆盖。
+- 部署后验证基线：根域名 title=「吉农 AI 助手 · 吉小农」且 `/med-assistant/` title=「医溯问答」同时 200。
+
+### 5.2 ⚠️ 第二次根路径事故记录与平台机制真相（2026-09-24）
+
+- **机制真相（本次查清，取代"app 级隔离"的模糊认知）**：本 env（`yjc-d0gvjkk8tae8bf1ad`）三个 app（jiuyijian / med-assistant / jlauyjcnb）均为 `DeployType=static-hosting` 且 `AppPath=/`，**共享同一个静态托管文件桶**——app 级隔离只到独立子域名与版本管理，文件桶和根路径是全 env 共享的。任何 app 以 AppPath=/ 部署都会重写根 `index.html`。
+- **事故经过**：2026-09-24 19:08 就医笺项目创建 jiuyijian app 并部署（jiuyijian-001；20:05 jiuyijian-002），AppPath=/ → 根 index.html 被就医笺覆盖，吉小农入口（根域名 + jlauyjcnb 子域名 + /chat?scenario=baodao 深链）全部指向就医笺。吉小农其余 assets 未丢（merge 上传，仅同名覆盖）。
+- **修复（20:34）**：重新部署 jlauyjcnb（jlauyjcnb-004，buildId 2607353474，SUCCESS）。本地 web/dist 与桶内吉小农资产字节一致（fallback.html / site.webmanifest / share-card.png / apple-touch-icon.png 四项 sha256 全同），零产品变化，纯恢复。复验：根 title=「吉农 AI 助手 · 吉小农」+ /med-assistant/ title=「医溯问答」同时 200，深链恢复 4,803B。
+- **代价**：就医笺在 CloudBase 静态托管根及其 staging 子域名根的存在被吉小农取代（就医笺招聘主入口 jiuyijian.app.workbuddy.host 不受影响）。
+- **架构冲突（待产品负责人决策）**：吉小农与就医笺均 AppPath=/，谁最后部署谁占根；再次部署就医笺到 CloudBase 会第三次顶掉吉小农。长效方案（吉小农保持根+就医笺撤出 / 吉小农挪子路径 / 脆弱平衡）见事故记录 `deliverables/product-strategy/root-incident-2026-09-24.md` §五。
+- **回滚锚点**：被覆盖的就医笺根页面留档于上述事故记录目录；jiuyijian-002 版本平台侧保留。
+
 ## 6. 数据存储（STORE_KIND=cloudbase）
 
 按 `db-schema.md` 在 CloudBase 文档存储建集合：
